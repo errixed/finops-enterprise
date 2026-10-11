@@ -1,0 +1,13 @@
+
+{
+  "name": "finops-enterprise",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Corporate Financial Operations Portal",
+  "scripts": {
+    "prestart": "npm install --prefix backend && npm install --prefix frontend && npm run build --prefix frontend",
+    "start": "node scripts/start.js",
+    "validate:data": "npm run validate:data --prefix backend"
+  }
+}

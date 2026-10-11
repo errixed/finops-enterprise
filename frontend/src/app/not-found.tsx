@@ -1,19 +1,15 @@
 import Link from "next/link";
+import { ROUTES } from "../../config";
 
 export default function NotFound() {
     return (
-        <div>
-            <h1>404</h1>
+        <section className="client-section">
+            <h1>404 — Page Not Found</h1>
+            <p>The page you requested does not exist.</p>
 
-            <h2>Page Not Found</h2>
-
-            <p>
-                The page you are looking for does not exist.
-            </p>
-
-            <Link href="/">
+            <Link href={ROUTES.dashboard}>
                 Return to Dashboard
             </Link>
-        </div>
+        </section>
     );
 }
