@@ -310,9 +310,51 @@ export default function ClientForm({ client }: Props) {
                             />
                         </label>
                     )}
+
                 </div>
             </div>
 
+            {error && (
+                <p className="corporate-form-error" role="alert">
+                    {error}
+                </p>
+            )}
+
+            {success && (
+                <p className="corporate-form-success" role="status">
+                    {success}
+                </p>
+            )}
+
+            <div className="corporate-form-actions">
+                <button
+                    type="button"
+                    className="corporate-cancel-button"
+                    disabled={saving}
+                    onClick={() =>
+                        router.push(
+                            editing && client
+                                ? `/clients/${client.clientId}`
+                                : "/clients"
+                        )
+                    }
+                >
+                    Cancel
+                </button>
+
+                <button
+                    type="submit"
+                    className="corporate-submit-button"
+                    disabled={saving || loadingOptions}
+                >
+                    {saving
+                        ? "Saving..."
+                        : editing
+                            ? "Save Changes"
+                            : "Register Client"}
+                </button>
+            </div>
         </form>
     );
 }
+
