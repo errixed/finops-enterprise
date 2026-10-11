@@ -49,6 +49,7 @@ finops-enterprise/
 ├── postman/
 │   ├── postman_collection.json
 │   └── postman_test_run.json
+├── screenshots/
 ├── scripts/start.js
 ├── package.json
 ├── .gitignore
