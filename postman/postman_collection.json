@@ -1,0 +1,1414 @@
+{
+  "info": {
+    "name": "FinOps Enterprise - API Testing (8.1)",
+    "_postman_id": "5bf4745c-911e-4bc2-9358-c2af9a2baec0",
+    "description": "13 backend endpoints; positive, validation, missing-record, duplicate, and business-rule tests. Run collection in order for setup variables. Writes test clients and accounts to backend JSON persistence; use a test copy of data. baseUrl is configurable without trailing slash, default http://localhost:3000.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000"
+    },
+    {
+      "key": "testRegistrationNumber",
+      "value": ""
+    },
+    {
+      "key": "testClientId",
+      "value": ""
+    },
+    {
+      "key": "testAccountId",
+      "value": ""
+    },
+    {
+      "key": "existingTransactionId",
+      "value": ""
+    },
+    {
+      "key": "missingId",
+      "value": "00000000-0000-4000-8000-000000000000"
+    }
+  ],
+  "item": [
+    {
+      "name": "01 - Health & Dashboard",
+      "item": [
+        {
+          "name": "Health check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/health",
+            "description": "Expected HTTP 200. Actual API behavior validated against backend source."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Response is JSON\", function () { pm.response.to.be.json; });",
+                  "pm.test(\"Service is healthy\", () => pm.expect(pm.response.json().status).to.eql(\"ok\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Dashboard summary",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/dashboard/summary",
+            "description": "Expected HTTP 200. Actual API behavior validated against backend source."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Response is JSON\", function () { pm.response.to.be.json; });",
+                  "pm.test(\"Summary contains totalClients\", () => pm.expect(pm.response.json()).to.have.property(\"totalClients\"));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "02 - Clients / Read",
+      "item": [
+        {
+          "name": "List clients",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/clients",
+            "description": "Expected HTTP 200. Actual API behavior validated against backend source."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Response is JSON\", function () { pm.response.to.be.json; });",
+                  "pm.test(\"Paginated client response\", () => pm.expect(pm.response.json()).to.have.property(\"data\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List clients - filters and pagination",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/clients?status=Active&industry=Technology&page=1&pageSize=5",
+            "description": "Expected HTTP 200. Actual API behavior validated against backend source."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Response is JSON\", function () { pm.response.to.be.json; });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List clients - invalid status filter",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/clients?status=Unrecognized",
+            "description": "Expected HTTP 400. Actual API behavior validated against backend source."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 400\", function () { pm.response.to.have.status(400); });",
+                  "pm.test(\"Response is JSON\", function () { pm.response.to.be.json; });",
+                  "pm.test(\"Error message returned\", function () { pm.expect(pm.response.json().error).to.be.a(\"string\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List clients - invalid page size",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/clients?pageSize=0",
+            "description": "Expected HTTP 400. Actual API behavior validated against backend source."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 400\", function () { pm.response.to.have.status(400); });",
+                  "pm.test(\"Response is JSON\", function () { pm.response.to.be.json; });",
+                  "pm.test(\"Error message returned\", function () { pm.expect(pm.response.json().error).to.be.a(\"string\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Client options",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/clients/options",
+            "description": "Expected HTTP 200. Actual API behavior validated against backend source."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Response is JSON\", function () { pm.response.to.be.json; });",
+                  "pm.test(\"Industry options available\", () => pm.expect(pm.response.json().industries).to.be.an(\"array\"));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "03 - Clients / Create",
+      "item": [
+        {
+          "name": "Register new client - success",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/clients",
+            "description": "Creates a unique isolated test client. On success stores testClientId and testRegistrationNumber for subsequent requests.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"companyName\": \"Postman Test Corporation\",\n  \"registrationNumber\": \"{{testRegistrationNumber}}\",\n  \"industry\": \"Technology\",\n  \"country\": \"Canada\",\n  \"contactEmail\": \"postman-test@example.com\",\n  \"contactPhone\": \"+1-416-555-0188\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 201\", function () { pm.response.to.have.status(201); });",
+                  "pm.test(\"Response is JSON\", function () { pm.response.to.be.json; });",
+                  "const data = pm.response.json();",
+                  "pm.test(\"New client identifier returned\", () => pm.expect(data.clientId).to.be.a(\"string\"));",
+                  "pm.collectionVariables.set(\"testClientId\", data.clientId);",
+                  "pm.test(\"Client initially active\", () => pm.expect(data.status).to.eql(\"Active\"));"
+                ]
+              }
+            },
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const unique = \"POSTMAN-\" + Date.now() + \"-\" + Math.floor(Math.random() * 1000000);",
+                  "pm.collectionVariables.set(\"testRegistrationNumber\", unique);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Duplicate registration number (case-insensitive)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/clients",
+            "description": "Expected HTTP 409. Actual API behavior validated against backend source.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"companyName\": \"Duplicate Test Corporation\",\n  \"registrationNumber\": \"{{testRegistrationNumber}}\",\n  \"industry\": \"Technology\",\n  \"country\": \"Canada\",\n  \"contactEmail\": \"postman-test@example.com\",\n  \"contactPhone\": \"+1-416-555-0188\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 409\", function () { pm.response.to.have.status(409); });",
+                  "pm.test(\"Response is JSON\", function () { pm.response.to.be.json; });",
+                  "pm.test(\"Error message returned\", function () { pm.expect(pm.response.json().error).to.be.a(\"string\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Missing required companyName",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/clients",
+            "description": "Expected HTTP 400. Actual API behavior validated against backend source.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"registrationNumber\": \"POSTMAN-OTHER-001\",\n  \"industry\": \"Technology\",\n  \"country\": \"Canada\",\n  \"contactEmail\": \"valid@example.com\",\n  \"contactPhone\": \"\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 400\", function () { pm.response.to.have.status(400); });",
+                  "pm.test(\"Response is JSON\", function () { pm.response.to.be.json; });",
+                  "pm.test(\"Error message returned\", function () { pm.expect(pm.response.json().error).to.be.a(\"string\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Invalid email",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/clients",
+            "description": "Expected HTTP 400. Actual API behavior validated against backend source.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"companyName\": \"Postman Test Corporation\",\n  \"registrationNumber\": \"{{testRegistrationNumber}}\",\n  \"industry\": \"Technology\",\n  \"country\": \"Canada\",\n  \"contactEmail\": \"invalid-email\",\n  \"contactPhone\": \"+1-416-555-0188\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 400\", function () { pm.response.to.have.status(400); });",
+                  "pm.test(\"Response is JSON\", function () { pm.response.to.be.json; });",
+                  "pm.test(\"Error message returned\", function () { pm.expect(pm.response.json().error).to.be.a(\"string\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Unsupported industry",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/clients",
+            "description": "Expected HTTP 400. Actual API behavior validated against backend source.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"companyName\": \"Postman Test Corporation\",\n  \"registrationNumber\": \"{{testRegistrationNumber}}\",\n  \"industry\": \"Space Mining\",\n  \"country\": \"Canada\",\n  \"contactEmail\": \"postman-test@example.com\",\n  \"contactPhone\": \"+1-416-555-0188\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 400\", function () { pm.response.to.have.status(400); });",
+                  "pm.test(\"Response is JSON\", function () { pm.response.to.be.json; });",
+                  "pm.test(\"Error message returned\", function () { pm.expect(pm.response.json().error).to.be.a(\"string\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Registration too short",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/clients",
+            "description": "Expected HTTP 400. Actual API behavior validated against backend source.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"companyName\": \"Postman Test Corporation\",\n  \"registrationNumber\": \"X\",\n  \"industry\": \"Technology\",\n  \"country\": \"Canada\",\n  \"contactEmail\": \"postman-test@example.com\",\n  \"contactPhone\": \"+1-416-555-0188\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 400\", function () { pm.response.to.have.status(400); });",
+                  "pm.test(\"Response is JSON\", function () { pm.response.to.be.json; });",
+                  "pm.test(\"Error message returned\", function () { pm.expect(pm.response.json().error).to.be.a(\"string\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Unexpected field",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/clients",
+            "description": "Expected HTTP 400. Actual API behavior validated against backend source.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"companyName\": \"Postman Test Corporation\",\n  \"registrationNumber\": \"{{testRegistrationNumber}}\",\n  \"industry\": \"Technology\",\n  \"country\": \"Canada\",\n  \"contactEmail\": \"postman-test@example.com\",\n  \"contactPhone\": \"+1-416-555-0188\",\n  \"admin\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 400\", function () { pm.response.to.have.status(400); });",
+                  "pm.test(\"Response is JSON\", function () { pm.response.to.be.json; });",
+                  "pm.test(\"Error message returned\", function () { pm.expect(pm.response.json().error).to.be.a(\"string\"); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "04 - Clients / Read & Update",
+      "item": [
+        {
+          "name": "Get created client by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/clients/{{testClientId}}",
+            "description": "Expected HTTP 200. Actual API behavior validated against backend source."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Response is JSON\", function () { pm.response.to.be.json; });",
+                  "pm.test(\"Correct client\", () => pm.expect(pm.response.json().clientId).to.eql(pm.collectionVariables.get(\"testClientId\")));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get nonexistent client",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/clients/{{missingId}}",
+            "description": "Expected HTTP 404. Actual API behavior validated against backend source."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 404\", function () { pm.response.to.have.status(404); });",
+                  "pm.test(\"Response is JSON\", function () { pm.response.to.be.json; });",
+                  "pm.test(\"Error message returned\", function () { pm.expect(pm.response.json().error).to.be.a(\"string\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update client - valid name",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/clients/{{testClientId}}",
+            "description": "Expected HTTP 200. Actual API behavior validated against backend source.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"companyName\": \"Postman Updated Corporation\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Response is JSON\", function () { pm.response.to.be.json; });",
+                  "pm.test(\"Updated name\", () => pm.expect(pm.response.json().companyName).to.eql(\"Postman Updated Corporation\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update client - empty body",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/clients/{{testClientId}}",
+            "description": "Expected HTTP 400. Actual API behavior validated against backend source.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 400\", function () { pm.response.to.have.status(400); });",
+                  "pm.test(\"Response is JSON\", function () { pm.response.to.be.json; });",
+                  "pm.test(\"Error message returned\", function () { pm.expect(pm.response.json().error).to.be.a(\"string\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update client - invalid status",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/clients/{{testClientId}}",
+            "description": "Expected HTTP 400. Actual API behavior validated against backend source.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"Unknown\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 400\", function () { pm.response.to.have.status(400); });",
+                  "pm.test(\"Response is JSON\", function () { pm.response.to.be.json; });",
+                  "pm.test(\"Error message returned\", function () { pm.expect(pm.response.json().error).to.be.a(\"string\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update client - immutable registration number",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/clients/{{testClientId}}",
+            "description": "Expected HTTP 400. Actual API behavior validated against backend source.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"registrationNumber\": \"CHANGED-12345\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 400\", function () { pm.response.to.have.status(400); });",
+                  "pm.test(\"Response is JSON\", function () { pm.response.to.be.json; });",
+                  "pm.test(\"Error message returned\", function () { pm.expect(pm.response.json().error).to.be.a(\"string\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update nonexistent client",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/clients/{{missingId}}",
+            "description": "Expected HTTP 404. Actual API behavior validated against backend source.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"companyName\": \"No Such Client\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 404\", function () { pm.response.to.have.status(404); });",
+                  "pm.test(\"Response is JSON\", function () { pm.response.to.be.json; });",
+                  "pm.test(\"Error message returned\", function () { pm.expect(pm.response.json().error).to.be.a(\"string\"); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "05 - Accounts / Read",
+      "item": [
+        {
+          "name": "List accounts",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/accounts",
+            "description": "Expected HTTP 200. Actual API behavior validated against backend source."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Response is JSON\", function () { pm.response.to.be.json; });",
+                  "pm.test(\"Accounts list is array\", () => pm.expect(pm.response.json()).to.be.an(\"array\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List accounts - filters",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/accounts?currency=CAD&accountType=Operating&status=Active",
+            "description": "Expected HTTP 200. Actual API behavior validated against backend source."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Response is JSON\", function () { pm.response.to.be.json; });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List accounts - invalid currency filter",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/accounts?currency=EUR",
+            "description": "Expected HTTP 400. Actual API behavior validated against backend source."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 400\", function () { pm.response.to.have.status(400); });",
+                  "pm.test(\"Response is JSON\", function () { pm.response.to.be.json; });",
+                  "pm.test(\"Error message returned\", function () { pm.expect(pm.response.json().error).to.be.a(\"string\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Account options",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/accounts/options",
+            "description": "Expected HTTP 200. Actual API behavior validated against backend source."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Response is JSON\", function () { pm.response.to.be.json; });",
+                  "pm.test(\"Currencies list available\", () => pm.expect(pm.response.json().currencies).to.include(\"CAD\"));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "06 - Accounts / Create",
+      "item": [
+        {
+          "name": "Register account for active client - success",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/accounts",
+            "description": "Expected HTTP 201. Actual API behavior validated against backend source.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"clientId\": \"{{testClientId}}\",\n  \"accountType\": \"Operating\",\n  \"currency\": \"CAD\",\n  \"balanceMinor\": 100000\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 201\", function () { pm.response.to.have.status(201); });",
+                  "pm.test(\"Response is JSON\", function () { pm.response.to.be.json; });",
+                  "const account = pm.response.json();",
+                  "pm.test(\"Created account has ID\", () => pm.expect(account.accountId).to.be.a(\"string\"));",
+                  "pm.collectionVariables.set(\"testAccountId\", account.accountId);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Negative account balance",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/accounts",
+            "description": "Expected HTTP 400. Actual API behavior validated against backend source.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"clientId\": \"{{testClientId}}\",\n  \"accountType\": \"Operating\",\n  \"currency\": \"CAD\",\n  \"balanceMinor\": -100\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 400\", function () { pm.response.to.have.status(400); });",
+                  "pm.test(\"Response is JSON\", function () { pm.response.to.be.json; });",
+                  "pm.test(\"Error message returned\", function () { pm.expect(pm.response.json().error).to.be.a(\"string\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Fractional minor units",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/accounts",
+            "description": "Expected HTTP 400. Actual API behavior validated against backend source.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"clientId\": \"{{testClientId}}\",\n  \"accountType\": \"Operating\",\n  \"currency\": \"CAD\",\n  \"balanceMinor\": 10.5\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 400\", function () { pm.response.to.have.status(400); });",
+                  "pm.test(\"Response is JSON\", function () { pm.response.to.be.json; });",
+                  "pm.test(\"Error message returned\", function () { pm.expect(pm.response.json().error).to.be.a(\"string\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Invalid account type",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/accounts",
+            "description": "Expected HTTP 400. Actual API behavior validated against backend source.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"clientId\": \"{{testClientId}}\",\n  \"accountType\": \"Cryptocurrency\",\n  \"currency\": \"CAD\",\n  \"balanceMinor\": 100000\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 400\", function () { pm.response.to.have.status(400); });",
+                  "pm.test(\"Response is JSON\", function () { pm.response.to.be.json; });",
+                  "pm.test(\"Error message returned\", function () { pm.expect(pm.response.json().error).to.be.a(\"string\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Unsupported currency",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/accounts",
+            "description": "Expected HTTP 400. Actual API behavior validated against backend source.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"clientId\": \"{{testClientId}}\",\n  \"accountType\": \"Operating\",\n  \"currency\": \"EUR\",\n  \"balanceMinor\": 100000\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 400\", function () { pm.response.to.have.status(400); });",
+                  "pm.test(\"Response is JSON\", function () { pm.response.to.be.json; });",
+                  "pm.test(\"Error message returned\", function () { pm.expect(pm.response.json().error).to.be.a(\"string\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Missing client ID",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/accounts",
+            "description": "Expected HTTP 400. Actual API behavior validated against backend source.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"accountType\": \"Operating\",\n  \"currency\": \"CAD\",\n  \"balanceMinor\": 100\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 400\", function () { pm.response.to.have.status(400); });",
+                  "pm.test(\"Response is JSON\", function () { pm.response.to.be.json; });",
+                  "pm.test(\"Error message returned\", function () { pm.expect(pm.response.json().error).to.be.a(\"string\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Nonexistent client",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/accounts",
+            "description": "Expected HTTP 404. Actual API behavior validated against backend source.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"clientId\": \"{{missingId}}\",\n  \"accountType\": \"Operating\",\n  \"currency\": \"CAD\",\n  \"balanceMinor\": 100000\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 404\", function () { pm.response.to.have.status(404); });",
+                  "pm.test(\"Response is JSON\", function () { pm.response.to.be.json; });",
+                  "pm.test(\"Error message returned\", function () { pm.expect(pm.response.json().error).to.be.a(\"string\"); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "07 - Accounts / Read & Business Rules",
+      "item": [
+        {
+          "name": "Get newly created account",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/accounts/{{testAccountId}}",
+            "description": "Expected HTTP 200. Actual API behavior validated against backend source."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Response is JSON\", function () { pm.response.to.be.json; });",
+                  "pm.test(\"Account ID matches\", () => pm.expect(pm.response.json().accountId).to.eql(pm.collectionVariables.get(\"testAccountId\")));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get nonexistent account",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/accounts/{{missingId}}",
+            "description": "Expected HTTP 404. Actual API behavior validated against backend source."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 404\", function () { pm.response.to.have.status(404); });",
+                  "pm.test(\"Response is JSON\", function () { pm.response.to.be.json; });",
+                  "pm.test(\"Error message returned\", function () { pm.expect(pm.response.json().error).to.be.a(\"string\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Deactivate test client",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/clients/{{testClientId}}",
+            "description": "Expected HTTP 200. Actual API behavior validated against backend source.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"Inactive\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Response is JSON\", function () { pm.response.to.be.json; });",
+                  "pm.test(\"Client inactive\", () => pm.expect(pm.response.json().status).to.eql(\"Inactive\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Account creation for inactive client - conflict",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/accounts",
+            "description": "Expected HTTP 409. Actual API behavior validated against backend source.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"clientId\": \"{{testClientId}}\",\n  \"accountType\": \"Operating\",\n  \"currency\": \"CAD\",\n  \"balanceMinor\": 100000\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 409\", function () { pm.response.to.have.status(409); });",
+                  "pm.test(\"Response is JSON\", function () { pm.response.to.be.json; });",
+                  "pm.test(\"Error message returned\", function () { pm.expect(pm.response.json().error).to.be.a(\"string\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Restore test client to active",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/clients/{{testClientId}}",
+            "description": "Expected HTTP 200. Actual API behavior validated against backend source.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"Active\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Response is JSON\", function () { pm.response.to.be.json; });",
+                  "pm.test(\"Client active again\", () => pm.expect(pm.response.json().status).to.eql(\"Active\"));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "08 - Transactions / Read",
+      "item": [
+        {
+          "name": "List transactions",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/transactions",
+            "description": "Expected HTTP 200. Actual API behavior validated against backend source."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Response is JSON\", function () { pm.response.to.be.json; });",
+                  "const result = pm.response.json();",
+                  "pm.test(\"Paginated transactions\", () => pm.expect(result.data).to.be.an(\"array\"));",
+                  "if (result.data.length) pm.collectionVariables.set(\"existingTransactionId\", result.data[0].transactionId);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List transactions - filters",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/transactions?status=Completed&page=1&pageSize=5",
+            "description": "Expected HTTP 200. Actual API behavior validated against backend source."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Response is JSON\", function () { pm.response.to.be.json; });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List transactions - invalid status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/transactions?status=Cancelled",
+            "description": "Expected HTTP 400. Actual API behavior validated against backend source."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 400\", function () { pm.response.to.have.status(400); });",
+                  "pm.test(\"Response is JSON\", function () { pm.response.to.be.json; });",
+                  "pm.test(\"Error message returned\", function () { pm.expect(pm.response.json().error).to.be.a(\"string\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List transactions - invalid date",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/transactions?dateFrom=bad-date",
+            "description": "Expected HTTP 400. Actual API behavior validated against backend source."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 400\", function () { pm.response.to.have.status(400); });",
+                  "pm.test(\"Response is JSON\", function () { pm.response.to.be.json; });",
+                  "pm.test(\"Error message returned\", function () { pm.expect(pm.response.json().error).to.be.a(\"string\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List transactions - date order conflict",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/transactions?dateFrom=2026-12-31&dateTo=2026-01-01",
+            "description": "Expected HTTP 400. Actual API behavior validated against backend source."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 400\", function () { pm.response.to.have.status(400); });",
+                  "pm.test(\"Response is JSON\", function () { pm.response.to.be.json; });",
+                  "pm.test(\"Error message returned\", function () { pm.expect(pm.response.json().error).to.be.a(\"string\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List transactions - invalid pagination",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/transactions?page=0",
+            "description": "Expected HTTP 400. Actual API behavior validated against backend source."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 400\", function () { pm.response.to.have.status(400); });",
+                  "pm.test(\"Response is JSON\", function () { pm.response.to.be.json; });",
+                  "pm.test(\"Error message returned\", function () { pm.expect(pm.response.json().error).to.be.a(\"string\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get existing transaction by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/transactions/{{existingTransactionId}}",
+            "description": "Uses ID populated by preceding List transactions request; run collection in sequence."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Response is JSON\", function () { pm.response.to.be.json; });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get nonexistent transaction",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/transactions/{{missingId}}",
+            "description": "Expected HTTP 404. Actual API behavior validated against backend source."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 404\", function () { pm.response.to.have.status(404); });",
+                  "pm.test(\"Response is JSON\", function () { pm.response.to.be.json; });",
+                  "pm.test(\"Error message returned\", function () { pm.expect(pm.response.json().error).to.be.a(\"string\"); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "09 - Unknown routes",
+      "item": [
+        {
+          "name": "Unknown endpoint returns 404",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/not-a-real-endpoint",
+            "description": "Expected HTTP 404. Actual API behavior validated against backend source."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 404\", function () { pm.response.to.have.status(404); });",
+                  "pm.test(\"Response is JSON\", function () { pm.response.to.be.json; });",
+                  "pm.test(\"Error message returned\", function () { pm.expect(pm.response.json().error).to.be.a(\"string\"); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
