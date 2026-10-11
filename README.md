@@ -166,7 +166,7 @@ ChatGPT was used as a development assistance tool for the following tasks:
 
 | Use case | Files / details |
 |---|---|
-| UI styling | Generated CSS styling, primarily `frontend/src/app/globals.css` |
+| UI styling | Generated CSS styling |
 | Postman testing | Generated `postman/postman_collection.json` |
 | Dataset validation | Generated `backend/scripts/validate-data.js` |
 | Transaction validation | Generated valid-state and transaction validation logic in `backend/src/services/transaction.service.js` |
