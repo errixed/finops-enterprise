@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ROUTES, PAGINATION } from "../../../config";
-
 import {
     Client,
     ClientListResult,
@@ -11,6 +10,7 @@ import {
     getClients,
     getClientOptions
 } from "@/services/clients";
+import { createPortal } from "react-dom";
 
 export default function ClientsPage() {
     const [result, setResult] = useState<ClientListResult | null>(null);
@@ -20,12 +20,13 @@ export default function ClientsPage() {
     const [status, setStatus] = useState("");
     const [industry, setIndustry] = useState("");
 
-const [page, setPage] = useState<number>(PAGINATION.DEFAULT_PAGE);
-const [pageSize, setPageSize] = useState<number>(PAGINATION.DEFAULT_PAGE_SIZE);
+    const [page, setPage] = useState<number>(PAGINATION.DEFAULT_PAGE);
+    const [pageSize, setPageSize] = useState<number>(PAGINATION.DEFAULT_PAGE_SIZE);
 
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
     const [openMenu, setOpenMenu] = useState<string | null>(null);
+    const [menuPosition, setMenuPosition] = useState({ top: 0, right: 0 });
 
     useEffect(() => {
         getClientOptions()
@@ -258,21 +259,34 @@ const [pageSize, setPageSize] = useState<number>(PAGINATION.DEFAULT_PAGE_SIZE);
                                                         className="clients-more-button"
                                                         aria-label={`More actions for ${client.companyName}`}
                                                         aria-expanded={openMenu === client.clientId}
-                                                        onClick={() =>
+                                                        onClick={(e) => {
+                                                            const rect = e.currentTarget.getBoundingClientRect();
+
+                                                            setMenuPosition({
+                                                                top: rect.bottom + 6,
+                                                                right: window.innerWidth - rect.right
+                                                            });
+
                                                             setOpenMenu(current =>
-                                                                current === client.clientId
-                                                                    ? null
-                                                                    : client.clientId
-                                                            )
-                                                        }
+                                                                current === client.clientId ? null : client.clientId
+                                                            );
+                                                        }}
                                                     >
                                                         <span className="material-symbols-rounded">
                                                             more_horiz
                                                         </span>
                                                     </button>
 
-                                                    {openMenu === client.clientId && (
-                                                        <div className="clients-menu-dropdown">
+                                                    {openMenu === client.clientId && createPortal(
+                                                        <div
+                                                            className="clients-menu-dropdown"
+                                                            style={{
+                                                                position: "fixed",
+                                                                top: menuPosition.top,
+                                                                right: menuPosition.right,
+                                                                zIndex: 9999
+                                                            }}
+                                                        >
                                                             <Link
                                                                 href={ROUTES.clientEdit(client.clientId)}
                                                                 onClick={() => setOpenMenu(null)}
@@ -282,7 +296,8 @@ const [pageSize, setPageSize] = useState<number>(PAGINATION.DEFAULT_PAGE_SIZE);
                                                                 </span>
                                                                 Edit Client
                                                             </Link>
-                                                        </div>
+                                                        </div>,
+                                                        document.body
                                                     )}
                                                 </div>
                                             </div>
@@ -317,9 +332,8 @@ const [pageSize, setPageSize] = useState<number>(PAGINATION.DEFAULT_PAGE_SIZE);
                                 <button
                                     key={number}
                                     type="button"
-                                    className={`clients-page-button ${
-                                        page === number ? "selected" : ""
-                                    }`}
+                                    className={`clients-page-button ${page === number ? "selected" : ""
+                                        }`}
                                     onClick={() => setPage(number)}
                                     disabled={loading}
                                 >

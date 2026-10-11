@@ -3,18 +3,17 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ROUTES, PAGINATION, ENUMS } from "../../../config";
-
 import {
     Account,
     AccountFilters,
     formatMoney,
     getAccounts
 } from "@/services/accounts";
-
 import {
     Client,
     getClients
 } from "@/services/clients";
+import { createPortal } from "react-dom";
 
 export default function AccountsPage() {
     const [accounts, setAccounts] = useState<Account[]>([]);
@@ -34,6 +33,7 @@ export default function AccountsPage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
     const [openMenu, setOpenMenu] = useState<string | null>(null);
+    const [menuPosition, setMenuPosition] = useState({ top: 0, right: 0 });
 
     useEffect(() => {
         let active = true;
@@ -237,7 +237,6 @@ export default function AccountsPage() {
                     }
                 >
                     <option value="">All Statuses</option>
-                    <option value="">All Statuses</option>
                     {ENUMS.ACCOUNT_STATUSES.map(status => (
                         <option key={status} value={status}>
                             {status}
@@ -342,21 +341,40 @@ export default function AccountsPage() {
                                                     aria-expanded={
                                                         openMenu === account.accountId
                                                     }
-                                                    onClick={() =>
+                                                    onClick={(e) => {
+                                                        const rect = e.currentTarget.getBoundingClientRect();
+                                                        const menuHeight = 110;
+
+                                                        const top =
+                                                            rect.bottom + menuHeight + 6 > window.innerHeight
+                                                                ? rect.top - menuHeight - 6
+                                                                : rect.bottom + 6;
+
+                                                        setMenuPosition({
+                                                            top: Math.max(8, top),
+                                                            right: Math.max(8, window.innerWidth - rect.right)
+                                                        });
+
                                                         setOpenMenu(current =>
-                                                            current === account.accountId
-                                                                ? null
-                                                                : account.accountId
-                                                        )
-                                                    }
+                                                            current === account.accountId ? null : account.accountId
+                                                        );
+                                                    }}
                                                 >
                                                     <span className="material-symbols-rounded">
                                                         more_horiz
                                                     </span>
                                                 </button>
 
-                                                {openMenu === account.accountId && (
-                                                    <div className="clients-menu-dropdown">
+                                                {openMenu === account.accountId && createPortal(
+                                                    <div
+                                                        className="clients-menu-dropdown"
+                                                        style={{
+                                                            position: "fixed",
+                                                            top: menuPosition.top,
+                                                            right: menuPosition.right,
+                                                            zIndex: 9999
+                                                        }}
+                                                    >
                                                         <Link
                                                             href={ROUTES.accountDetails(account.accountId)}
                                                             onClick={() => setOpenMenu(null)}
@@ -376,7 +394,8 @@ export default function AccountsPage() {
                                                             </span>
                                                             View Client
                                                         </Link>
-                                                    </div>
+                                                    </div>,
+                                                    document.body
                                                 )}
                                             </div>
                                         </div>
