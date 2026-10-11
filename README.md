@@ -16,6 +16,7 @@ A financial institution needs one portal to register corporate clients, maintain
 | Persistence | JSON files, Node.js file-system APIs |
 | Verification | Postman, Node.js data-validation script, manual browser testing |
 | Package management / version control | npm / Git and GitHub |
+| Icons | Google Material Symbols Rounded |
 
 ## 4. Application Architecture
 Request flow: **Next.js page/component → frontend API service → Express route → controller → business service → repository → JSON file**. A response travels back through the layers. The frontend uses `frontend/src/app/` for pages, `frontend/src/components/` for reusable UI, `frontend/src/services/` for requests, and `frontend/config.ts` for route and backend URL definitions. The backend uses `backend/src/routes/` to map URLs, `controllers/` for HTTP request/response handling, `services/` for validation and business rules, and `repositories/` for data access. Middleware in `backend/src/middleware/` supports request logging, not-found handling, and centralized errors; `backend/src/app.js` configures the Express application.
@@ -60,7 +61,7 @@ The tree shows the important source files and directories; dependencies and gene
 
 ```bash
 # Clone the repository and enter its root directory
-git clone YOUR_REPOSITORY_URL
+git clone REPOSITORY_URL
 cd finops-enterprise
 
 # Install dependencies, build frontend, and start both servers
@@ -175,6 +176,3 @@ ChatGPT was used as a development assistance tool for the following tasks:
 | Code structure review | Helped check imports, exports, module organization, and correct usage of `backend/config.js` and `frontend/config.ts` |
 | README generation | Generated `README.md` **excluding Section 14 (Technical Reflection)** |
 | Technical Reflection editing | Used only to correct grammar and vocabulary in the Technical Reflection section; the answers describe the project's implementation and development decisions |
-
-## 16. Conclusion
-FinOps Enterprise provides client and account management, transaction viewing, input validation, and persistent JSON-backed storage using a layered Express.js backend and Next.js frontend. Its API tests, dataset validation script, and documented frontend verification process support repeatable review. The architecture can be extended in Assignment 2 with transaction processing, approval workflows, and transactional storage.
