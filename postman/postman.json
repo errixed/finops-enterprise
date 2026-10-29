@@ -1,0 +1,751 @@
+{
+  "info": {
+    "name": "FinOps Enterprise - Assignment 2 Through Section 5.9",
+    "description": "Ordered API tests. Creates clients, accounts and actual financial transactions. Use development database only. Concurrency and restart persistence require separate checks.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080/api/v1"
+    },
+    {
+      "key": "clientId",
+      "value": ""
+    },
+    {
+      "key": "registrationNumber",
+      "value": ""
+    },
+    {
+      "key": "sourceId",
+      "value": ""
+    },
+    {
+      "key": "destinationId",
+      "value": ""
+    },
+    {
+      "key": "sourceBefore",
+      "value": ""
+    },
+    {
+      "key": "destinationBefore",
+      "value": ""
+    },
+    {
+      "key": "transactionId",
+      "value": ""
+    },
+    {
+      "key": "idempotencyKey",
+      "value": ""
+    },
+    {
+      "key": "rejectedTransactionId",
+      "value": ""
+    },
+    {
+      "key": "rejectionKey",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "01 - Health",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/health"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => { pm.response.to.have.status(200); });",
+              "pm.test('Healthy', () => { pm.expect(pm.response.json().status).to.eql('ok'); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "02 - Dashboard",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/dashboard/summary"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => { pm.response.to.have.status(200); });",
+              "pm.test('Summary counts', () => { pm.expect(pm.response.json().totalClients).to.be.a('number'); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "03 - Client Options",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/clients/options"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => { pm.response.to.have.status(200); });",
+              "pm.test('Valid options', () => { pm.expect(pm.response.json().industries).to.include('Technology'); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "04 - Clients Pagination",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/clients?page=1&pageSize=5"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => { pm.response.to.have.status(200); });",
+              "const b=pm.response.json();",
+              "pm.test('Data array with five or fewer entries',()=>{pm.expect(b.data).to.be.an('array');pm.expect(b.data.length).to.be.at.most(5);});",
+              "pm.test('Correct nested pagination metadata',()=>{pm.expect(b.pagination.page).to.eql(1);pm.expect(b.pagination.pageSize).to.eql(5);pm.expect(b.pagination.total).to.be.a('number');});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "05 - Create Client",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/clients",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"companyName\":\"FinOps Postman Test Company\",\"registrationNumber\":\"{{registrationNumber}}\",\"industry\":\"Technology\",\"country\":\"Canada\",\"contactEmail\":\"finops-test@example.com\",\"contactPhone\":\"4165550100\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.collectionVariables.set('registrationNumber','PM-'+Date.now()+'-'+Math.floor(Math.random()*100000));"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 201', () => { pm.response.to.have.status(201); });",
+              "const b=pm.response.json();pm.test('Save client ID',()=>{pm.expect(b.clientId).to.be.a('string');pm.collectionVariables.set('clientId',b.clientId);});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "06 - Client Detail",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/clients/{{clientId}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => { pm.response.to.have.status(200); });",
+              "pm.test('Correct client', () => { pm.expect(pm.response.json().clientId).to.eql(pm.collectionVariables.get('clientId')); });",
+              "pm.test('Accounts included', () => { pm.expect(pm.response.json().accounts).to.be.an('array'); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "07 - Update Client",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/clients/{{clientId}}",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"companyName\":\"FinOps Updated Test Company\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => { pm.response.to.have.status(200); });",
+              "pm.test('Updated client', () => { pm.expect(pm.response.json().companyName).to.eql('FinOps Updated Test Company'); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "08 - Account Options",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/accounts/options"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => { pm.response.to.have.status(200); });",
+              "pm.test('CAD available', () => { pm.expect(pm.response.json().currencies).to.include('CAD'); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "09 - Create Source Account",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/accounts",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"clientId\":\"{{clientId}}\",\"accountType\":\"Operating\",\"currency\":\"CAD\",\"balanceMinor\":10000}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 201', () => { pm.response.to.have.status(201); });",
+              "const b=pm.response.json();pm.test('Save source account',()=>{pm.expect(b.balanceMinor).to.eql(10000);pm.collectionVariables.set('sourceId',b.accountId);pm.collectionVariables.set('sourceBefore',String(b.balanceMinor));});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "10 - Source Account Detail",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/accounts/{{sourceId}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => { pm.response.to.have.status(200); });",
+              "pm.test('Source account matches', () => { pm.expect(pm.response.json().accountId).to.eql(pm.collectionVariables.get('sourceId')); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "11 - Select Existing Destination",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/accounts?currency=CAD&status=Active"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => { pm.response.to.have.status(200); });",
+              "const a=pm.response.json();pm.test('Account listing is array',()=>pm.expect(a).to.be.an('array'));const d=a.find(x=>x.accountId!==pm.collectionVariables.get('sourceId')&&x.currency==='CAD'&&x.status==='Active'&&Number.isSafeInteger(x.balanceMinor)&&x.balanceMinor<Number.MAX_SAFE_INTEGER-100);pm.test('Eligible destination exists',()=>pm.expect(d).to.exist);if(d){pm.collectionVariables.set('destinationId',d.accountId);pm.collectionVariables.set('destinationBefore',String(d.balanceMinor));}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "12 - Transactions Pagination",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/transactions?page=1&pageSize=5"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => { pm.response.to.have.status(200); });",
+              "const b=pm.response.json();",
+              "pm.test('Data array with five or fewer entries',()=>{pm.expect(b.data).to.be.an('array');pm.expect(b.data.length).to.be.at.most(5);});",
+              "pm.test('Correct nested pagination metadata',()=>{pm.expect(b.pagination.page).to.eql(1);pm.expect(b.pagination.pageSize).to.eql(5);pm.expect(b.pagination.total).to.be.a('number');});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "13 - Missing Idempotency Key",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/transactions",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"sourceAccountId\":\"{{sourceId}}\",\"destinationAccountId\":\"{{destinationId}}\",\"amountMinor\":100,\"currency\":\"CAD\",\"description\":\"Postman transfer test\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 400', () => { pm.response.to.have.status(400); });",
+              "pm.test('Error envelope', () => { pm.expect(pm.response.json().error.code).to.be.a('string'); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "14 - Initiate Pending",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Idempotency-Key",
+            "value": "{{idempotencyKey}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/transactions",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"sourceAccountId\":\"{{sourceId}}\",\"destinationAccountId\":\"{{destinationId}}\",\"amountMinor\":100,\"currency\":\"CAD\",\"description\":\"Postman transfer test\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.collectionVariables.set('idempotencyKey','postman-transfer-'+Date.now()+'-'+Math.floor(Math.random()*100000));"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 201', () => { pm.response.to.have.status(201); });",
+              "const b=pm.response.json().data;pm.test('Pending nonlegacy transaction',()=>{pm.expect(b.status).to.eql('Pending');pm.expect(b.isLegacy).to.eql(false);pm.collectionVariables.set('transactionId',b.transactionId);});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "15 - Identical Initiation Retry",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Idempotency-Key",
+            "value": "{{idempotencyKey}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/transactions",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"sourceAccountId\":\"{{sourceId}}\",\"destinationAccountId\":\"{{destinationId}}\",\"amountMinor\":100,\"currency\":\"CAD\",\"description\":\"Postman transfer test\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => { pm.response.to.have.status(200); });",
+              "pm.test('Same transaction ID', () => { pm.expect(pm.response.json().data.transactionId).to.eql(pm.collectionVariables.get('transactionId')); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "16 - Changed Request Same Key",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Idempotency-Key",
+            "value": "{{idempotencyKey}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/transactions",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"sourceAccountId\":\"{{sourceId}}\",\"destinationAccountId\":\"{{destinationId}}\",\"amountMinor\":200,\"currency\":\"CAD\",\"description\":\"Postman transfer test\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 409', () => { pm.response.to.have.status(409); });",
+              "pm.test('Conflict error', () => { pm.expect(pm.response.json().error.code).to.be.a('string'); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "17 - Pending Transaction Detail",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/transactions/{{transactionId}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => { pm.response.to.have.status(200); });",
+              "pm.test('Pending status', () => { pm.expect(pm.response.json().status).to.eql('Pending'); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "18 - Process Successful Transfer",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": "{{baseUrl}}/transactions/{{transactionId}}/process"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => { pm.response.to.have.status(200); });",
+              "const t=pm.response.json().data;pm.test('Completed with timestamp',()=>{pm.expect(t.status).to.eql('Completed');pm.expect(t.processedAt).to.be.a('string');pm.expect(t.rejectionCode).to.eql(null);});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "19 - Check Source Debit",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/accounts/{{sourceId}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => { pm.response.to.have.status(200); });",
+              "pm.test('Debited exactly once', () => { pm.expect(pm.response.json().balanceMinor).to.eql(Number(pm.collectionVariables.get('sourceBefore'))-100); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "20 - Check Destination Credit",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/accounts/{{destinationId}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => { pm.response.to.have.status(200); });",
+              "pm.test('Credited exactly once', () => { pm.expect(pm.response.json().balanceMinor).to.eql(Number(pm.collectionVariables.get('destinationBefore'))+100); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "21 - Block Duplicate Processing",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": "{{baseUrl}}/transactions/{{transactionId}}/process"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 409', () => { pm.response.to.have.status(409); });",
+              "pm.test('Already processed error', () => { pm.expect(pm.response.json().error.code).to.eql('TRANSACTION_ALREADY_PROCESSED'); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "22 - Retry Initiation After Completion",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Idempotency-Key",
+            "value": "{{idempotencyKey}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/transactions",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"sourceAccountId\":\"{{sourceId}}\",\"destinationAccountId\":\"{{destinationId}}\",\"amountMinor\":100,\"currency\":\"CAD\",\"description\":\"Postman transfer test\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => { pm.response.to.have.status(200); });",
+              "pm.test('Returns same Completed transaction', () => { const t=pm.response.json().data;pm.expect(t.transactionId).to.eql(pm.collectionVariables.get('transactionId'));pm.expect(t.status).to.eql('Completed'); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "23 - Initiate Insufficient Funds",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Idempotency-Key",
+            "value": "{{rejectionKey}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/transactions",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"sourceAccountId\":\"{{sourceId}}\",\"destinationAccountId\":\"{{destinationId}}\",\"amountMinor\":9007199254740991,\"currency\":\"CAD\",\"description\":\"Insufficient funds test\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.collectionVariables.set('rejectionKey','postman-reject-'+Date.now()+'-'+Math.floor(Math.random()*100000));"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 201', () => { pm.response.to.have.status(201); });",
+              "pm.test('Pending rejection candidate', () => { const t=pm.response.json().data;pm.expect(t.status).to.eql('Pending');pm.collectionVariables.set('rejectedTransactionId',t.transactionId); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "24 - Reject Insufficient Funds",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": "{{baseUrl}}/transactions/{{rejectedTransactionId}}/process"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => { pm.response.to.have.status(200); });",
+              "const t=pm.response.json().data;pm.test('Correct rejection code and reason',()=>{pm.expect(t.status).to.eql('Rejected');pm.expect(t.rejectionCode).to.eql('INSUFFICIENT_FUNDS');pm.expect(t.rejectionReason).to.be.a('string').and.not.empty;pm.expect(t.processedAt).to.be.a('string');});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "25 - Invalid Pagination",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/transactions?page=0&pageSize=101"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 400', () => { pm.response.to.have.status(400); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "26 - Missing Client",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/clients/00000000-0000-4000-8000-000000000000"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 404', () => { pm.response.to.have.status(404); });"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

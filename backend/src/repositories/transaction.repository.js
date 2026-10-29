@@ -96,20 +96,6 @@ export async function countTransactions(filter = {}) {
     return transactions().countDocuments(filter);
 }
 
-export async function insertTransaction(transaction, options = {}) {
-    const document = toTransactionDocument(transaction);
-
-    try {
-        await transactions().insertOne(document, options);
-        return serializeTransactionDocument(document);
-    } catch (error) {
-        handleDuplicateKey(
-            error,
-            "Transaction identifier, reference number or idempotency key already exists"
-        );
-    }
-}
-
 export async function updateTransactionStatus({
     transactionId,
     expectedStatus,
@@ -119,11 +105,26 @@ export async function updateTransactionStatus({
     processedAt = null,
     session
 }) {
-    if (!session) {
+    if (!session?.inTransaction()) {
         throw new Error(
-            "Transaction status changes require a MongoDB session"
+            "An active MongoDB transaction is required"
         );
     }
+
+    const allowedTransitions = {
+        Pending: ["Processing"],
+        Processing: ["Completed", "Rejected"]
+    };
+
+    if (
+        !allowedTransitions[expectedStatus]?.includes(status)
+    ) {
+        throw new Error(
+            `Invalid transaction transition: ${expectedStatus} to ${status}`
+        );
+    }
+
+    const now = new Date();
 
     const result = await transactions().updateOne(
         {
@@ -136,14 +137,47 @@ export async function updateTransactionStatus({
                 status,
                 rejectionCode,
                 rejectionReason,
-                updatedAt: new Date(),
-                processedAt: processedAt
-                    ? new Date(processedAt)
-                    : null
+                updatedAt: now,
+                processedAt:
+                    status === "Completed" || status === "Rejected"
+                        ? processedAt
+                            ? new Date(processedAt)
+                            : now
+                        : null
             }
         },
         { session }
     );
 
     return result.modifiedCount === 1;
+}
+
+export async function findTransactionByIdempotencyKey(idempotencyKey) {
+    const document = await transactions().findOne({
+        idempotencyKey,
+        isLegacy: false
+    });
+
+    return serializeTransactionDocument(document);
+}
+
+export async function insertPendingTransaction(transaction) {
+    const document = toTransactionDocument(transaction);
+    await transactions().insertOne(document);
+
+    return serializeTransactionDocument(document);
+}
+
+export async function findTransactionForProcessing(
+    transactionId,
+    session
+) {
+    if (!session?.inTransaction()) {
+        throw new Error("An active MongoDB transaction is required");
+    }
+
+    return transactions().findOne(
+        { transactionId },
+        { session }
+    );
 }

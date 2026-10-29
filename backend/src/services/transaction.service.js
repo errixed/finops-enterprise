@@ -1,11 +1,17 @@
 import {
     findTransactionById,
-    searchTransactions
+    searchTransactions,
+    findTransactionByIdempotencyKey,
+    insertPendingTransaction
 } from "../repositories/transaction.repository.js";
 import {
     findAccountById
 } from "../repositories/account.repository.js";
 import { ENUMS } from "../../config.js";
+import {
+    randomUUID,
+    createHash
+} from "node:crypto";
 
 const STATUSES = ENUMS.TRANSACTION_STATUSES;
 
@@ -35,55 +41,6 @@ function parseDate(value, field) {
     }
 
     return value;
-}
-
-function validateTransactions(transactions, accounts) {
-    const accountMap = new Map(
-        accounts.map(account => [account.accountId, account])
-    );
-
-    const ids = new Set();
-    const references = new Set();
-
-    for (const transaction of transactions) {
-        const source = accountMap.get(transaction.sourceAccountId);
-        const destination = accountMap.get(transaction.destinationAccountId);
-
-        const valid =
-            typeof transaction.transactionId === "string" &&
-            /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(transaction.transactionId) &&
-            typeof transaction.referenceNumber === "string" &&
-            transaction.referenceNumber.length > 0 &&
-            !ids.has(transaction.transactionId) &&
-            !references.has(transaction.referenceNumber) &&
-            source &&
-            destination &&
-            source.accountId !== destination.accountId &&
-            typeof source.accountId === "string" &&
-            typeof destination.accountId === "string" &&
-            Number.isSafeInteger(transaction.amountMinor) &&
-            transaction.amountMinor > 0 &&
-            ["CAD", "USD"].includes(transaction.currency) &&
-            source.currency === transaction.currency &&
-            destination.currency === transaction.currency &&
-            transaction.transactionType === "Transfer" &&
-            STATUSES.includes(transaction.status) &&
-            typeof transaction.description === "string" &&
-            transaction.description.length <= 250 &&
-            typeof transaction.createdAt === "string" &&
-            !Number.isNaN(Date.parse(transaction.createdAt)) &&
-            /^\d{4}-\d{2}-\d{2}T.*Z$/.test(transaction.createdAt);
-
-        if (!valid) {
-            fail(
-                `Invalid stored transaction: ${transaction.referenceNumber ?? "unknown"}`,
-                500
-            );
-        }
-
-        ids.add(transaction.transactionId);
-        references.add(transaction.referenceNumber);
-    }
 }
 
 export async function getAllTransactions({
@@ -209,6 +166,252 @@ export async function getTransactionById(transactionId) {
             currency: destination.currency
         }
     };
+}
+
+const UUID_PATTERN =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+const INITIATION_FIELDS = [
+    "sourceAccountId",
+    "destinationAccountId",
+    "amountMinor",
+    "currency",
+    "description"
+];
+
+function validateInitiationInput(input) {
+    if (
+        !input ||
+        typeof input !== "object" ||
+        Array.isArray(input)
+    ) {
+        fail("Request body must be an object", 400);
+    }
+
+    for (const field of Object.keys(input)) {
+        if (!INITIATION_FIELDS.includes(field)) {
+            fail(
+                `Field ${field} is not allowed`,
+                400,
+                field
+            );
+        }
+    }
+
+    const {
+        sourceAccountId,
+        destinationAccountId,
+        amountMinor,
+        currency,
+        description = ""
+    } = input;
+
+    if (
+        typeof sourceAccountId !== "string" ||
+        !UUID_PATTERN.test(sourceAccountId)
+    ) {
+        fail(
+            "Invalid source account ID",
+            400,
+            "sourceAccountId"
+        );
+    }
+
+    if (
+        typeof destinationAccountId !== "string" ||
+        !UUID_PATTERN.test(destinationAccountId)
+    ) {
+        fail(
+            "Invalid destination account ID",
+            400,
+            "destinationAccountId"
+        );
+    }
+
+    if (
+        sourceAccountId.toLowerCase() ===
+        destinationAccountId.toLowerCase()
+    ) {
+        fail(
+            "Source and destination accounts must differ",
+            400,
+            "destinationAccountId"
+        );
+    }
+
+    if (
+        !Number.isSafeInteger(amountMinor) ||
+        amountMinor <= 0
+    ) {
+        fail(
+            "Amount must be a positive safe integer",
+            400,
+            "amountMinor"
+        );
+    }
+
+    if (!ENUMS.CURRENCIES.includes(currency)) {
+        fail(
+            "Unsupported currency",
+            400,
+            "currency"
+        );
+    }
+
+    if (
+        typeof description !== "string" ||
+        description.length > 250
+    ) {
+        fail(
+            "Description must be a string of at most 250 characters",
+            400,
+            "description"
+        );
+    }
+
+    return {
+        sourceAccountId: sourceAccountId.toLowerCase(),
+        destinationAccountId: destinationAccountId.toLowerCase(),
+        amountMinor,
+        currency,
+        description
+    };
+}
+
+function validateIdempotencyKey(key) {
+    if (
+        typeof key !== "string" ||
+        !key.trim() ||
+        key.length > 200
+    ) {
+        fail(
+            "A valid Idempotency-Key header is required",
+            400,
+            "Idempotency-Key"
+        );
+    }
+
+    return key.trim();
+}
+
+function fingerprintRequest(payload) {
+    return createHash("sha256")
+        .update(JSON.stringify(payload))
+        .digest("hex");
+}
+
+function resolveExistingTransaction(transaction, fingerprint) {
+    if (
+        transaction.requestFingerprint !== fingerprint
+    ) {
+        fail(
+            "Idempotency key already used for a different request",
+            409,
+            "Idempotency-Key"
+        );
+    }
+
+    return {
+        transaction,
+        created: false
+    };
+}
+
+export async function initiateTransaction(input, idempotencyKey) {
+    const key = validateIdempotencyKey(idempotencyKey);
+    const payload = validateInitiationInput(input);
+    const fingerprint = fingerprintRequest(payload);
+
+    const existing = await findTransactionByIdempotencyKey(key);
+
+    if (existing) {
+        return resolveExistingTransaction(existing, fingerprint);
+    }
+
+    const [sourceAccount, destinationAccount] = await Promise.all([
+        findAccountById(payload.sourceAccountId),
+        findAccountById(payload.destinationAccountId)
+    ]);
+
+    if (!sourceAccount) {
+        fail(
+            "Source account not found",
+            404,
+            "sourceAccountId"
+        );
+    }
+
+    if (!destinationAccount) {
+        fail(
+            "Destination account not found",
+            404,
+            "destinationAccountId"
+        );
+    }
+
+    if (sourceAccount.currency !== destinationAccount.currency) {
+        fail(
+            "Source and destination account currencies must match",
+            400,
+            "currency"
+        );
+    }
+
+    if (payload.currency !== sourceAccount.currency) {
+        fail(
+            "Transaction currency must match both accounts",
+            400,
+            "currency"
+        );
+    }
+
+    const now = new Date().toISOString();
+    const transactionId = randomUUID();
+
+    const transaction = {
+        transactionId,
+        referenceNumber: `TXN-${transactionId.toUpperCase()}`,
+        idempotencyKey: key,
+        requestFingerprint: fingerprint,
+        ...payload,
+        transactionType: "Transfer",
+        status: "Pending",
+        isLegacy: false,
+        rejectionCode: null,
+        rejectionReason: null,
+        createdAt: now,
+        updatedAt: now,
+        processedAt: null
+    };
+
+    try {
+        const createdTransaction =
+            await insertPendingTransaction(transaction);
+
+        return {
+            transaction: createdTransaction,
+            created: true
+        };
+    } catch (error) {
+        if (error.code === 11000) {
+            const conflictingTransaction =
+                await findTransactionByIdempotencyKey(key);
+
+            if (conflictingTransaction) {
+                return resolveExistingTransaction(
+                    conflictingTransaction,
+                    fingerprint
+                );
+            }
+
+            fail(
+                "Transaction identifier or reference conflict",
+                409
+            );
+        }
+
+        throw error;
+    }
 }
 
 export const TRANSACTION_STATUSES = STATUSES;

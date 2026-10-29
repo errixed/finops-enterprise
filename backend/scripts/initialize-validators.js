@@ -1,5 +1,6 @@
 import { ENUMS } from "../config.js";
 import { getDatabase } from "../src/config/mongodb.js";
+import { TRANSACTION_REJECTION_CODES } from "../src/utils/transaction-lifecycle.js";
 
 const UUID_PATTERN =
     "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$";
@@ -8,6 +9,8 @@ const EMAIL_PATTERN =
     "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$";
 
 const MAX_SAFE_INTEGER = Number.MAX_SAFE_INTEGER;
+
+const REJECTION_CODES = Object.values(TRANSACTION_REJECTION_CODES);
 
 const clientValidator = {
     $jsonSchema: {
@@ -118,110 +121,144 @@ const accountValidator = {
 };
 
 const transactionValidator = {
-    $jsonSchema: {
-        bsonType: "object",
-        required: [
-            "transactionId",
-            "referenceNumber",
-            "sourceAccountId",
-            "destinationAccountId",
-            "amountMinor",
-            "currency",
-            "transactionType",
-            "status",
-            "description",
-            "isLegacy",
-            "createdAt",
-            "updatedAt",
-            "processedAt"
-        ],
-        properties: {
-            transactionId: {
-                bsonType: "string",
-                pattern: UUID_PATTERN
-            },
-            referenceNumber: {
-                bsonType: "string",
-                minLength: 1
-            },
-            idempotencyKey: {
-                bsonType: "string",
-                minLength: 1
-            },
-            requestFingerprint: {
-                bsonType: "string",
-                minLength: 1
-            },
-            sourceAccountId: {
-                bsonType: "string",
-                pattern: UUID_PATTERN
-            },
-            destinationAccountId: {
-                bsonType: "string",
-                pattern: UUID_PATTERN
-            },
-            amountMinor: {
-                bsonType: "long",
-                minimum: 1,
-                maximum: MAX_SAFE_INTEGER
-            },
-            currency: {
-                enum: ENUMS.CURRENCIES
-            },
-            transactionType: {
-                enum: ENUMS.TRANSACTION_TYPES
-            },
-            status: {
-                enum: ENUMS.TRANSACTION_STATUSES
-            },
-            description: {
-                bsonType: "string",
-                maxLength: 250
-            },
-            isLegacy: {
-                bsonType: "bool"
-            },
-            rejectionCode: {
-                enum: [
-                    null,
-                    "INSUFFICIENT_FUNDS",
-                    "SOURCE_ACCOUNT_INACTIVE",
-                    "DESTINATION_ACCOUNT_INACTIVE",
-                    "CURRENCY_MISMATCH",
-                    "ACCOUNT_NOT_FOUND",
-                    "BUSINESS_RULE_VIOLATION"
-                ]
-            },
-            rejectionReason: {
-                bsonType: ["string", "null"]
-            },
-            createdAt: {
-                bsonType: "date"
-            },
-            updatedAt: {
-                bsonType: "date"
-            },
-            processedAt: {
-                bsonType: ["date", "null"]
-            }
-        },
-        oneOf: [
-            {
-                properties: {
-                    isLegacy: { enum: [true] }
-                }
-            },
-            {
+    $and: [
+        {
+            $jsonSchema: {
+                bsonType: "object",
                 required: [
-                    "idempotencyKey",
-                    "requestFingerprint"
+                    "transactionId",
+                    "referenceNumber",
+                    "sourceAccountId",
+                    "destinationAccountId",
+                    "amountMinor",
+                    "currency",
+                    "transactionType",
+                    "status",
+                    "description",
+                    "isLegacy",
+                    "createdAt",
+                    "updatedAt",
+                    "processedAt"
                 ],
                 properties: {
-                    isLegacy: { enum: [false] }
-                }
+                    transactionId: {
+                        bsonType: "string",
+                        pattern: UUID_PATTERN
+                    },
+                    referenceNumber: {
+                        bsonType: "string",
+                        minLength: 1
+                    },
+                    idempotencyKey: {
+                        bsonType: "string",
+                        minLength: 1,
+                        pattern: "\\S"
+                    },
+                    requestFingerprint: {
+                        bsonType: "string",
+                        pattern: "^[0-9a-f]{64}$"
+                    },
+                    sourceAccountId: {
+                        bsonType: "string",
+                        pattern: UUID_PATTERN
+                    },
+                    destinationAccountId: {
+                        bsonType: "string",
+                        pattern: UUID_PATTERN
+                    },
+                    amountMinor: {
+                        bsonType: "long",
+                        minimum: 1,
+                        maximum: MAX_SAFE_INTEGER
+                    },
+                    currency: {
+                        enum: ENUMS.CURRENCIES
+                    },
+                    transactionType: {
+                        enum: ENUMS.TRANSACTION_TYPES
+                    },
+                    status: {
+                        enum: ENUMS.TRANSACTION_STATUSES
+                    },
+                    description: {
+                        bsonType: "string",
+                        maxLength: 250
+                    },
+                    isLegacy: {
+                        bsonType: "bool"
+                    },
+                    rejectionCode: {
+                        enum: [
+                            null,
+                            ...REJECTION_CODES
+                        ]
+                    },
+                    rejectionReason: {
+                        bsonType: ["string", "null"]
+                    },
+                    createdAt: {
+                        bsonType: "date"
+                    },
+                    updatedAt: {
+                        bsonType: "date"
+                    },
+                    processedAt: {
+                        bsonType: ["date", "null"]
+                    }
+                },
+                oneOf: [
+                    {
+                        properties: {
+                            isLegacy: {
+                                enum: [true]
+                            }
+                        }
+                    },
+                    {
+                        required: [
+                            "idempotencyKey",
+                            "requestFingerprint"
+                        ],
+                        properties: {
+                            isLegacy: {
+                                enum: [false]
+                            }
+                        }
+                    }
+                ]
             }
-        ]
-    }
+        },
+        {
+            $or: [
+                {
+                    isLegacy: true
+                },
+                {
+                    status: {
+                        $ne: "Rejected"
+                    }
+                },
+                {
+                    $and: [
+                        {
+                            isLegacy: false
+                        },
+                        {
+                            rejectionCode: {
+                                $in: REJECTION_CODES
+                            }
+                        },
+                        {
+                            rejectionReason: {
+                                $type: "string",
+                                $regex: "\\S"
+                            }
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
 };
 
 async function applyValidator(name, validator) {

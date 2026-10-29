@@ -76,62 +76,55 @@ export async function insertAccount(accountData) {
     }
 }
 
-export async function modifyAccountBalance({
+export async function findAccountForProcessing(accountId, session) {
+    if (!session?.inTransaction()) {
+        throw new Error("An active MongoDB transaction is required");
+    }
+
+    return accounts().findOne({ accountId }, { session });
+}
+
+export async function updateProcessingBalance({
     accountId,
-    expectedStatus = "Active",
-    minimumBalanceMinor = 0,
+    expectedBalanceMinor,
     deltaMinor,
     session
 }) {
+    if (!session?.inTransaction()) {
+        throw new Error(
+            "An active MongoDB transaction is required"
+        );
+    }
+
     if (
-        !Number.isSafeInteger(deltaMinor) ||
-        !Number.isSafeInteger(minimumBalanceMinor) ||
-        minimumBalanceMinor < 0
+        typeof expectedBalanceMinor !== "bigint" ||
+        !Number.isSafeInteger(deltaMinor)
     ) {
         throw new RangeError(
             "Invalid account balance operation"
         );
     }
 
-    if (!session?.inTransaction()) {
-        throw new Error(
-            "Balance changes require an active MongoDB transaction"
-        );
-    }
-
-    const maximumBalanceMinor = BigInt(
-        Number.MAX_SAFE_INTEGER
-    );
-
+    const current = expectedBalanceMinor;
     const delta = BigInt(deltaMinor);
+    const updated = current + delta;
+    const maximum = BigInt(Number.MAX_SAFE_INTEGER);
 
-    const minimum = BigInt(minimumBalanceMinor);
-
-    const lowerBound = delta < 0n
-        ? -delta > minimum
-            ? -delta
-            : minimum
-        : minimum;
-
-    const upperBound = delta > 0n
-        ? maximumBalanceMinor - delta
-        : maximumBalanceMinor;
-
-    if (lowerBound > upperBound) {
+    if (
+        current < 0n ||
+        current > maximum ||
+        updated < 0n ||
+        updated > maximum
+    ) {
         return false;
     }
 
-    const filter = {
-        accountId,
-        status: expectedStatus,
-        balanceMinor: {
-            $gte: Long.fromBigInt(lowerBound),
-            $lte: Long.fromBigInt(upperBound)
-        }
-    };
-
     const result = await accounts().updateOne(
-        filter,
+        {
+            accountId,
+            status: "Active",
+            balanceMinor: Long.fromBigInt(current)
+        },
         {
             $inc: {
                 balanceMinor: Long.fromBigInt(delta)
