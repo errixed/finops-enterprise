@@ -78,7 +78,9 @@ async function request<T>(
     const data = await response.json();
 
     if (!response.ok) {
-        throw new Error(data.error || "Request failed");
+        throw new Error(
+            data.error?.message ?? "Request failed"
+        );
     }
 
     return data as T;

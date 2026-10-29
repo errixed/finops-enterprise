@@ -1,12 +1,13 @@
 import { randomUUID } from "node:crypto";
 import {
-    findAllClients,
     findClientById,
     insertClient,
-    updateClient
+    updateClient,
+    searchClients
 } from "../repositories/client.repository.js";
-import { findAllAccounts } from "../repositories/account.repository.js";
-import { paginate } from "../utils/pagination.js";
+import {
+    findAccountsByClientId
+} from "../repositories/account.repository.js";
 import { ENUMS } from "../../config.js";
 
 const INDUSTRIES = ENUMS.CLIENT_INDUSTRIES;
@@ -177,23 +178,13 @@ export async function getAllClients({
         fail("Invalid search parameter", 400, "search");
     }
 
-    const clients = await findAllClients();
-    const query = search.trim().toLowerCase();
-
-    const filtered = clients.filter(client => {
-        const matchesSearch =
-            !query ||
-            client.companyName.toLowerCase().includes(query) ||
-            client.registrationNumber.toLowerCase().includes(query);
-
-        return (
-            matchesSearch &&
-            (!status || client.status === status) &&
-            (!industry || client.industry === industry)
-        );
+    return searchClients({
+        search,
+        status,
+        industry,
+        page,
+        pageSize
     });
-
-    return paginate(filtered, page, pageSize);
 }
 
 export async function getClientById(clientId) {
@@ -203,13 +194,11 @@ export async function getClientById(clientId) {
         fail("Client not found", 404);
     }
 
-    const accounts = await findAllAccounts();
+    const accounts = await findAccountsByClientId(clientId);
 
     return {
         ...client,
-        accounts: accounts.filter(
-            account => account.clientId === clientId
-        )
+        accounts
     };
 }
 

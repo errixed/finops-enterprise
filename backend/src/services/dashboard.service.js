@@ -1,57 +1,71 @@
-import { findAllClients } from "../repositories/client.repository.js";
-import { findAllAccounts } from "../repositories/account.repository.js";
-import { findAllTransactions } from "../repositories/transaction.repository.js";
+import {
+    getDashboardStatistics,
+    findRecentTransactions,
+    findDashboardAccounts
+} from "../repositories/dashboard.repository.js";
+
+import {
+    serializeTransactionDocument
+} from "../utils/transaction-document.js";
 
 export async function getDashboardSummary() {
-    const [clients, accounts, transactions] = await Promise.all([
-        findAllClients(),
-        findAllAccounts(),
-        findAllTransactions()
+    const [
+        statistics,
+        recentDocuments
+    ] = await Promise.all([
+        getDashboardStatistics(),
+        findRecentTransactions(5)
     ]);
 
     const transactionStatuses = {
         Pending: 0,
+        Processing: 0,
         Completed: 0,
         Rejected: 0
     };
 
-    for (const transaction of transactions) {
-        if (Object.hasOwn(transactionStatuses, transaction.status)) {
-            transactionStatuses[transaction.status]++;
+    for (const group of statistics.statusGroups) {
+        if (Object.hasOwn(transactionStatuses, group._id)) {
+            transactionStatuses[group._id] = group.count;
         }
     }
 
-    const recentTransactions = [...transactions]
-        .sort((a, b) => {
-            const difference =
-                new Date(b.createdAt).getTime() -
-                new Date(a.createdAt).getTime();
+    const recentTransactions = recentDocuments.map(
+        serializeTransactionDocument
+    );
 
-            return difference ||
-                a.transactionId.localeCompare(b.transactionId);
-        })
-        .slice(0, 5);
+    const accountIds = [
+        ...new Set(
+            recentTransactions.flatMap(transaction => [
+                transaction.sourceAccountId,
+                transaction.destinationAccountId
+            ])
+        )
+    ];
+
+    const relatedAccounts = await findDashboardAccounts(
+        accountIds
+    );
 
     const accountMap = new Map(
-        accounts.map(account => [
+        relatedAccounts.map(account => [
             account.accountId,
             account.accountNumber
         ])
     );
 
     return {
-        totalClients: clients.length,
-        activeClients: clients.filter(
-            client => client.status === "Active"
-        ).length,
-        activeAccounts: accounts.filter(
-            account => account.status === "Active"
-        ).length,
-        totalTransactions: transactions.length,
+        totalClients: statistics.totalClients,
+        activeClients: statistics.activeClients,
+        activeAccounts: statistics.activeAccounts,
+        totalTransactions: statistics.totalTransactions,
+
         pendingTransactions: transactionStatuses.Pending,
         completedTransactions: transactionStatuses.Completed,
         rejectedTransactions: transactionStatuses.Rejected,
+
         transactionStatuses,
+
         recentTransactions: recentTransactions.map(transaction => ({
             ...transaction,
             sourceAccountNumber:

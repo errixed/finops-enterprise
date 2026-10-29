@@ -1,56 +1,144 @@
 import { randomUUID } from "node:crypto";
-import { readJsonFile, updateJsonFile } from "./json.repository.js";
+import { Long } from "mongodb";
 
-const FILE = "accounts.json";
+import {
+    getCollection,
+    handleDuplicateKey
+} from "./mongodb.repository.js";
 
-export async function findAllAccounts() {
-    return readJsonFile(FILE);
+import {
+    toAccountDocument,
+    serializeAccountDocument
+} from "../utils/account-document.js";
+
+function accounts() {
+    return getCollection("accounts");
 }
 
-export async function findAccountById(accountId) {
-    const accounts = await readJsonFile(FILE);
+export async function findAccountById(accountId, options = {}) {
+    const document = await accounts().findOne(
+        { accountId },
+        options
+    );
 
-    return accounts.find(
-        account => account.accountId === accountId
-    ) ?? null;
-}
-
-export async function insertAccount(accountData) {
-    let newAccount;
-
-    await updateJsonFile(FILE, accounts => {
-        const accountId = randomUUID();
-        const accountNumber = `ACC-${randomUUID().toUpperCase()}`;
-
-        if (
-            accounts.some(account =>
-                account.accountId === accountId ||
-                account.accountNumber === accountNumber
-            )
-        ) {
-            const error = new Error("Account identifier collision");
-            error.statusCode = 409;
-            throw error;
-        }
-
-        newAccount = {
-            ...accountData,
-            accountId,
-            accountNumber
-        };
-
-        accounts.push(newAccount);
-
-        return accounts;
-    });
-
-    return newAccount;
+    return serializeAccountDocument(document);
 }
 
 export async function findAccountsByClientId(clientId) {
-    const accounts = await readJsonFile(FILE);
+    const documents = await accounts()
+        .find({ clientId })
+        .toArray();
 
-    return accounts.filter(
-        account => account.clientId === clientId
+    return documents.map(serializeAccountDocument);
+}
+
+export async function filterAccounts({
+    clientId = "",
+    accountType = "",
+    currency = "",
+    status = ""
+} = {}) {
+    const filter = {};
+
+    if (clientId) filter.clientId = clientId;
+    if (accountType) filter.accountType = accountType;
+    if (currency) filter.currency = currency;
+    if (status) filter.status = status;
+
+    const documents = await accounts()
+        .find(filter)
+        .toArray();
+
+    return documents.map(serializeAccountDocument);
+}
+
+export async function countAccounts(filter = {}) {
+    return accounts().countDocuments(filter);
+}
+
+export async function insertAccount(accountData) {
+    const account = {
+        ...accountData,
+        accountId: randomUUID(),
+        accountNumber: `ACC-${randomUUID().toUpperCase()}`
+    };
+
+    const document = toAccountDocument(account);
+
+    try {
+        await accounts().insertOne(document);
+        return serializeAccountDocument(document);
+    } catch (error) {
+        handleDuplicateKey(
+            error,
+            "Account identifier collision"
+        );
+    }
+}
+
+export async function modifyAccountBalance({
+    accountId,
+    expectedStatus = "Active",
+    minimumBalanceMinor = 0,
+    deltaMinor,
+    session
+}) {
+    if (
+        !Number.isSafeInteger(deltaMinor) ||
+        !Number.isSafeInteger(minimumBalanceMinor) ||
+        minimumBalanceMinor < 0
+    ) {
+        throw new RangeError(
+            "Invalid account balance operation"
+        );
+    }
+
+    if (!session?.inTransaction()) {
+        throw new Error(
+            "Balance changes require an active MongoDB transaction"
+        );
+    }
+
+    const maximumBalanceMinor = BigInt(
+        Number.MAX_SAFE_INTEGER
     );
+
+    const delta = BigInt(deltaMinor);
+
+    const minimum = BigInt(minimumBalanceMinor);
+
+    const lowerBound = delta < 0n
+        ? -delta > minimum
+            ? -delta
+            : minimum
+        : minimum;
+
+    const upperBound = delta > 0n
+        ? maximumBalanceMinor - delta
+        : maximumBalanceMinor;
+
+    if (lowerBound > upperBound) {
+        return false;
+    }
+
+    const filter = {
+        accountId,
+        status: expectedStatus,
+        balanceMinor: {
+            $gte: Long.fromBigInt(lowerBound),
+            $lte: Long.fromBigInt(upperBound)
+        }
+    };
+
+    const result = await accounts().updateOne(
+        filter,
+        {
+            $inc: {
+                balanceMinor: Long.fromBigInt(delta)
+            }
+        },
+        { session }
+    );
+
+    return result.modifiedCount === 1;
 }

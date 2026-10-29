@@ -1,24 +1,16 @@
-
 import "dotenv/config";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-export const ROOT_DIR = __dirname;
 
 export const PORT = Number(process.env.PORT) || 3000;
 
 export const FRONTEND_ORIGIN =
     process.env.FRONTEND_ORIGIN || "http://localhost:3001";
 
-export const PATHS = Object.freeze({
-    DATA_DIR: path.join(ROOT_DIR, "data"),
-    CLIENTS_FILE: path.join(ROOT_DIR, "data", "clients.json"),
-    ACCOUNTS_FILE: path.join(ROOT_DIR, "data", "accounts.json"),
-    TRANSACTIONS_FILE: path.join(ROOT_DIR, "data", "transactions.json")
-});
+export const MONGODB_URI =
+    process.env.MONGODB_URI ||
+    "mongodb://localhost:27017/finops_enterprise?replicaSet=rs0";
+
+export const MONGODB_DB_NAME =
+    process.env.MONGODB_DB_NAME || "finops_enterprise";
 
 export const ENUMS = Object.freeze({
     CLIENT_INDUSTRIES: [
@@ -67,6 +59,7 @@ export const ENUMS = Object.freeze({
 
     TRANSACTION_STATUSES: [
         "Pending",
+        "Processing",
         "Completed",
         "Rejected"
     ]

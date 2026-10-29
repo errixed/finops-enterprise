@@ -1,0 +1,122 @@
+[
+  {
+    "clientId": "56faacf8-6310-4d0e-8a67-1a206eef735b",
+    "companyName": "Maple Industrial Group",
+    "registrationNumber": "CA-2026-000001",
+    "industry": "Manufacturing",
+    "country": "Canada",
+    "contactEmail": "finance1@example.com",
+    "contactPhone": "+1-416-555-0101",
+    "status": "Active",
+    "createdAt": "2026-09-01T12:00:00.000Z",
+    "updatedAt": "2026-09-01T12:00:00.000Z"
+  },
+  {
+    "clientId": "5bc908ec-0bc2-4e23-bdbf-b47231f7108c",
+    "companyName": "Riverside Construction",
+    "registrationNumber": "CA-2026-000002",
+    "industry": "Construction",
+    "country": "Canada",
+    "contactEmail": "finance2@example.com",
+    "contactPhone": "+1-416-555-0102",
+    "status": "Active",
+    "createdAt": "2026-09-01T12:00:00.000Z",
+    "updatedAt": "2026-09-01T12:00:00.000Z"
+  },
+  {
+    "clientId": "7da87eb9-0e1a-4120-8efa-dc89facb428e",
+    "companyName": "Summit Retail Holdings",
+    "registrationNumber": "CA-2026-000003",
+    "industry": "Retail",
+    "country": "Canada",
+    "contactEmail": "finance3@example.com",
+    "contactPhone": "+1-416-555-0103",
+    "status": "Inactive",
+    "createdAt": "2026-09-01T12:00:00.000Z",
+    "updatedAt": "2026-09-01T12:00:00.000Z"
+  },
+  {
+    "clientId": "ab0c6cc1-834a-4025-9b8b-de5639dd2674",
+    "companyName": "Northern Cloud Technologies",
+    "registrationNumber": "CA-2026-000004",
+    "industry": "Technology",
+    "country": "Canada",
+    "contactEmail": "finance4@example.com",
+    "contactPhone": "+1-416-555-0104",
+    "status": "Active",
+    "createdAt": "2026-09-01T12:00:00.000Z",
+    "updatedAt": "2026-10-10T23:03:47.884Z"
+  },
+  {
+    "clientId": "963f6f3f-ffdb-4545-9eaa-e13b8c9b4941",
+    "companyName": "Evergreen Health Supplies",
+    "registrationNumber": "CA-2026-000005",
+    "industry": "Healthcare",
+    "country": "Canada",
+    "contactEmail": "finance5@example.com",
+    "contactPhone": "+1-416-555-0105",
+    "status": "Active",
+    "createdAt": "2026-09-01T12:00:00.000Z",
+    "updatedAt": "2026-09-01T12:00:00.000Z"
+  },
+  {
+    "clientId": "85a9081b-142e-4f60-82f7-80bc65764326",
+    "companyName": "Polar Logistics Group",
+    "registrationNumber": "CA-2026-000006",
+    "industry": "Transportation",
+    "country": "Canada",
+    "contactEmail": "finance6@example.com",
+    "contactPhone": "+1-416-555-0106",
+    "status": "Active",
+    "createdAt": "2026-09-01T12:00:00.000Z",
+    "updatedAt": "2026-09-01T12:00:00.000Z"
+  },
+  {
+    "clientId": "745e0c79-fba0-4fec-8562-6cb6af63bf41",
+    "companyName": "Cedar Software Solutions",
+    "registrationNumber": "CA-2026-000007",
+    "industry": "Technology",
+    "country": "Canada",
+    "contactEmail": "finance7@example.com",
+    "contactPhone": "+1-416-555-0107",
+    "status": "Active",
+    "createdAt": "2026-09-01T12:00:00.000Z",
+    "updatedAt": "2026-09-01T12:00:00.000Z"
+  },
+  {
+    "clientId": "3bc7a5e4-902f-4452-a1d6-b992bb9913bf",
+    "companyName": "Atlantic Financial Services",
+    "registrationNumber": "CA-2026-000008",
+    "industry": "Financial Services",
+    "country": "Canada",
+    "contactEmail": "finance8@example.com",
+    "contactPhone": "+1-416-555-0108",
+    "status": "Suspended",
+    "createdAt": "2026-09-01T12:00:00.000Z",
+    "updatedAt": "2026-09-01T12:00:00.000Z"
+  },
+  {
+    "clientId": "1fde9c38-7aa1-4c7c-93f5-bf170f15c07f",
+    "companyName": "Prairie Wholesale Partners",
+    "registrationNumber": "CA-2026-000009",
+    "industry": "Wholesale Distribution",
+    "country": "Canada",
+    "contactEmail": "finance9@example.com",
+    "contactPhone": "+1-416-555-0109",
+    "status": "Active",
+    "createdAt": "2026-09-01T12:00:00.000Z",
+    "updatedAt": "2026-09-01T12:00:00.000Z"
+  },
+  {
+    "clientId": "f148a9b0-0cb9-4c12-b63b-1fbeb113b224",
+    "companyName": "Liberty Energy Corporation",
+    "registrationNumber": "CA-2026-000010",
+    "industry": "Energy",
+    "country": "Canada",
+    "contactEmail": "finance10@example.com",
+    "contactPhone": "+1-416-555-0110",
+    "status": "Active",
+    "createdAt": "2026-09-01T12:00:00.000Z",
+    "updatedAt": "2026-09-01T12:00:00.000Z"
+  }
+]

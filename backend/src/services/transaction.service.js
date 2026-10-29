@@ -1,11 +1,10 @@
 import {
-    findAllTransactions,
-    findTransactionById
+    findTransactionById,
+    searchTransactions
 } from "../repositories/transaction.repository.js";
 import {
-    findAllAccounts
+    findAccountById
 } from "../repositories/account.repository.js";
-import { paginate } from "../utils/pagination.js";
 import { ENUMS } from "../../config.js";
 
 const STATUSES = ENUMS.TRANSACTION_STATUSES;
@@ -121,57 +120,62 @@ export async function getAllTransactions({
         fail("Unsupported transaction status", 400, "status");
     }
 
-    const from = dateFrom ? parseDate(dateFrom, "dateFrom") : "";
-    const to = dateTo ? parseDate(dateTo, "dateTo") : "";
+    const from = dateFrom
+        ? parseDate(dateFrom, "dateFrom")
+        : "";
+
+    const to = dateTo
+        ? parseDate(dateTo, "dateTo")
+        : "";
 
     if (from && to && from > to) {
-        fail("Start date cannot be after end date", 400, "dateFrom");
+        fail(
+            "Start date cannot be after end date",
+            400,
+            "dateFrom"
+        );
     }
 
-    const [transactions, accounts] = await Promise.all([
-        findAllTransactions(),
-        findAllAccounts()
-    ]);
+    const result = await searchTransactions({
+        search,
+        sourceAccountId,
+        status,
+        dateFrom: from,
+        dateTo: to,
+        page: currentPage,
+        pageSize: currentPageSize
+    });
 
-    validateTransactions(transactions, accounts);
+    const ids = [
+        ...new Set(
+            result.data.flatMap(transaction => [
+                transaction.sourceAccountId,
+                transaction.destinationAccountId
+            ])
+        )
+    ];
 
-    const accountMap = new Map(
-        accounts.map(account => [account.accountId, account])
+    const entries = await Promise.all(
+        ids.map(async id => [
+            id,
+            await findAccountById(id)
+        ])
     );
 
-    const query = search.trim().toLowerCase();
+    const accountMap = new Map(entries);
 
-    const filtered = transactions
-        .filter(transaction => {
-            const date = transaction.createdAt.slice(0, 10);
-
-            return (
-                (!query ||
-                    transaction.referenceNumber.toLowerCase().includes(query)) &&
-                (!sourceAccountId ||
-                    transaction.sourceAccountId === sourceAccountId) &&
-                (!status || transaction.status === status) &&
-                (!from || date >= from) &&
-                (!to || date <= to)
-            );
-        })
-        .sort((a, b) => {
-            const dateDifference =
-                Date.parse(b.createdAt) - Date.parse(a.createdAt);
-
-            return dateDifference ||
-                a.transactionId.localeCompare(b.transactionId);
-        });
-
-        const enriched = filtered.map(transaction => ({
+    return {
+        ...result,
+        data: result.data.map(transaction => ({
             ...transaction,
             sourceAccountNumber:
-                accountMap.get(transaction.sourceAccountId).accountNumber,
+                accountMap.get(transaction.sourceAccountId)
+                    ?.accountNumber ?? "Unknown",
             destinationAccountNumber:
-                accountMap.get(transaction.destinationAccountId).accountNumber
-        }));
-
-        return paginate(enriched, page, pageSize);
+                accountMap.get(transaction.destinationAccountId)
+                    ?.accountNumber ?? "Unknown"
+        }))
+    };
 }
 
 export async function getTransactionById(transactionId) {
@@ -181,20 +185,14 @@ export async function getTransactionById(transactionId) {
         fail("Transaction not found", 404);
     }
 
-    const [transactions, accounts] = await Promise.all([
-        findAllTransactions(),
-        findAllAccounts()
+    const [source, destination] = await Promise.all([
+        findAccountById(transaction.sourceAccountId),
+        findAccountById(transaction.destinationAccountId)
     ]);
 
-    validateTransactions(transactions, accounts);
-
-    const source = accounts.find(
-        account => account.accountId === transaction.sourceAccountId
-    );
-
-    const destination = accounts.find(
-        account => account.accountId === transaction.destinationAccountId
-    );
+    if (!source || !destination) {
+        fail("Transaction account relationship is invalid", 500);
+    }
 
     return {
         ...transaction,

@@ -1,84 +1,136 @@
-import { readJsonFile, updateJsonFile } from "./json.repository.js";
+import {
+    getCollection,
+    findPage,
+    escapeRegex,
+    repositoryError,
+    handleDuplicateKey
+} from "./mongodb.repository.js";
 
-const FILE = "clients.json";
+import {
+    normalizeRegistrationNumber,
+    toClientDocument,
+    serializeClientDocument
+} from "../utils/client-document.js";
 
-const normalizeRegistration = value =>
-    value.trim().toLowerCase();
-
-export async function findAllClients() {
-    return readJsonFile(FILE);
+function clients() {
+    return getCollection("clients");
 }
 
 export async function findClientById(clientId) {
-    const clients = await readJsonFile(FILE);
-
-    return clients.find(
-        client => client.clientId === clientId
-    ) ?? null;
+    const document = await clients().findOne({ clientId });
+    return serializeClientDocument(document);
 }
 
-export async function findClientByRegistrationNumber(registrationNumber) {
-    const clients = await readJsonFile(FILE);
-    const normalized = normalizeRegistration(registrationNumber);
+export async function findClientByRegistrationNumber(
+    registrationNumber
+) {
+    const document = await clients().findOne({
+        registrationNumberNormalized:
+            normalizeRegistrationNumber(registrationNumber)
+    });
 
-    return clients.find(
-        client =>
-            normalizeRegistration(client.registrationNumber) === normalized
-    ) ?? null;
+    return serializeClientDocument(document);
+}
+
+export async function searchClients({
+    search = "",
+    status = "",
+    industry = "",
+    page = 1,
+    pageSize = 10
+} = {}) {
+    const filter = {};
+
+    if (search.trim()) {
+        const query = escapeRegex(search.trim());
+
+        filter.$or = [
+            { companyName: { $regex: query, $options: "i" } },
+            { registrationNumber: { $regex: query, $options: "i" } }
+        ];
+    }
+
+    if (status) {
+        filter.status = status;
+    }
+
+    if (industry) {
+        filter.industry = industry;
+    }
+
+    return findPage({
+        collection: clients(),
+        filter,
+        sort: { _id: 1 },
+        page,
+        pageSize,
+        serialize: serializeClientDocument
+    });
+}
+
+export async function countClients(filter = {}) {
+    return clients().countDocuments(filter);
 }
 
 export async function insertClient(client) {
-    await updateJsonFile(FILE, clients => {
-        const duplicate = clients.some(
-            existing =>
-                normalizeRegistration(existing.registrationNumber) ===
-                normalizeRegistration(client.registrationNumber)
+    const document = toClientDocument(client);
+
+    try {
+        await clients().insertOne(document);
+        return serializeClientDocument(document);
+    } catch (error) {
+        handleDuplicateKey(
+            error,
+            "Client identifier or registration number already exists"
         );
-
-        if (duplicate) {
-            const error = new Error("Registration number already exists");
-            error.statusCode = 409;
-            throw error;
-        }
-
-        if (clients.some(existing => existing.clientId === client.clientId)) {
-            const error = new Error("Client identifier already exists");
-            error.statusCode = 409;
-            throw error;
-        }
-
-        clients.push(client);
-        return clients;
-    });
-
-    return client;
+    }
 }
 
 export async function updateClient(clientId, changes) {
-    let updatedClient;
+    const allowed = [
+        "companyName",
+        "industry",
+        "country",
+        "contactEmail",
+        "contactPhone",
+        "status",
+        "updatedAt"
+    ];
 
-    await updateJsonFile(FILE, clients => {
-        const index = clients.findIndex(
-            client => client.clientId === clientId
-        );
+    const updates = {};
 
-        if (index === -1) {
-            const error = new Error("Client not found");
-            error.statusCode = 404;
-            throw error;
+    for (const field of allowed) {
+        if (Object.hasOwn(changes, field)) {
+            updates[field] = changes[field];
         }
+    }
 
-        updatedClient = {
-            ...clients[index],
-            ...changes,
-            clientId: clients[index].clientId,
-            registrationNumber: clients[index].registrationNumber,
-            createdAt: clients[index].createdAt
-        };
+    if (Object.hasOwn(updates, "updatedAt")) {
+        updates.updatedAt = new Date(updates.updatedAt);
 
-        clients[index] = updatedClient;
-        return clients;
-    });
+        if (Number.isNaN(updates.updatedAt.getTime())) {
+            throw repositoryError(
+                "Invalid updatedAt timestamp",
+                400
+            );
+        }
+    }
 
-    return updatedClient;
+    if (Object.keys(updates).length === 0) {
+        throw repositoryError(
+            "No valid client fields to update",
+            400
+        );
+    }
+
+    const result = await clients().updateOne(
+        { clientId },
+        { $set: updates }
+    );
+
+    if (result.matchedCount === 0) {
+        throw repositoryError("Client not found", 404);
+    }
+
+    return findClientById(clientId);
 }

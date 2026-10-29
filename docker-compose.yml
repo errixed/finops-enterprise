@@ -25,6 +25,20 @@ services:
     networks:
       - finops_network
 
+  migration:
+    build:
+      context: ./backend
+    environment:
+      MONGODB_URI: "mongodb://mongodb:27017/finops_enterprise?replicaSet=rs0"
+      MONGODB_DB_NAME: "finops_enterprise"
+    command: ["node", "scripts/migrate-json-to-mongodb.js"]
+    depends_on:
+      mongo-init:
+        condition: service_completed_successfully
+    restart: "no"
+    networks:
+      - finops_network
+
   backend:
     build:
       context: ./backend
@@ -35,7 +49,7 @@ services:
       MONGODB_URI: "mongodb://mongodb:27017/finops_enterprise?replicaSet=rs0"
       MONGODB_DB_NAME: "finops_enterprise"
     depends_on:
-      mongo-init:
+      migration:
         condition: service_completed_successfully
     networks:
       - finops_network

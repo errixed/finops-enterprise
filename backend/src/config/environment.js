@@ -1,6 +1,13 @@
-import { PORT, FRONTEND_ORIGIN } from "../../config.js";
+import {
+    PORT,
+    FRONTEND_ORIGIN,
+    MONGODB_URI,
+    MONGODB_DB_NAME
+} from "../../config.js";
 
-export const environment = {
+export const environment = Object.freeze({
     port: PORT,
-    frontendOrigin: FRONTEND_ORIGIN
-};
+    frontendOrigin: FRONTEND_ORIGIN,
+    mongodbUri: MONGODB_URI,
+    mongodbDbName: MONGODB_DB_NAME
+});

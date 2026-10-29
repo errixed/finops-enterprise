@@ -1,0 +1,202 @@
+[
+  {
+    "accountId": "f24b6266-b38c-4fd6-8051-ef88cb6a96e0",
+    "clientId": "56faacf8-6310-4d0e-8a67-1a206eef735b",
+    "accountNumber": "ACC-2026-000001",
+    "accountType": "Operating",
+    "currency": "CAD",
+    "balanceMinor": 1000000,
+    "status": "Active",
+    "createdAt": "2026-09-02T12:00:00.000Z"
+  },
+  {
+    "accountId": "4cbfc0f6-e7d0-4d3e-a96f-44565624e31d",
+    "clientId": "5bc908ec-0bc2-4e23-bdbf-b47231f7108c",
+    "accountNumber": "ACC-2026-000002",
+    "accountType": "Savings",
+    "currency": "USD",
+    "balanceMinor": 1475000,
+    "status": "Active",
+    "createdAt": "2026-09-02T12:00:00.000Z"
+  },
+  {
+    "accountId": "c3fd62c9-324b-4714-9f2c-e74ac01aeb87",
+    "clientId": "7da87eb9-0e1a-4120-8efa-dc89facb428e",
+    "accountNumber": "ACC-2026-000003",
+    "accountType": "Investment",
+    "currency": "CAD",
+    "balanceMinor": 1950000,
+    "status": "Active",
+    "createdAt": "2026-09-02T12:00:00.000Z"
+  },
+  {
+    "accountId": "c0b15748-22d7-455c-853e-8a3a2e8791e4",
+    "clientId": "ab0c6cc1-834a-4025-9b8b-de5639dd2674",
+    "accountNumber": "ACC-2026-000004",
+    "accountType": "Operating",
+    "currency": "USD",
+    "balanceMinor": 2425000,
+    "status": "Active",
+    "createdAt": "2026-09-02T12:00:00.000Z"
+  },
+  {
+    "accountId": "2bcfcce6-5ce5-41e3-afec-cb85789b4297",
+    "clientId": "963f6f3f-ffdb-4545-9eaa-e13b8c9b4941",
+    "accountNumber": "ACC-2026-000005",
+    "accountType": "Savings",
+    "currency": "CAD",
+    "balanceMinor": 2900000,
+    "status": "Active",
+    "createdAt": "2026-09-02T12:00:00.000Z"
+  },
+  {
+    "accountId": "8b458e0d-d6bc-45d8-ab83-699fce4b04b0",
+    "clientId": "85a9081b-142e-4f60-82f7-80bc65764326",
+    "accountNumber": "ACC-2026-000006",
+    "accountType": "Investment",
+    "currency": "USD",
+    "balanceMinor": 3375000,
+    "status": "Active",
+    "createdAt": "2026-09-02T12:00:00.000Z"
+  },
+  {
+    "accountId": "cdcace55-0ca5-4b29-8f57-5222ff67b820",
+    "clientId": "745e0c79-fba0-4fec-8562-6cb6af63bf41",
+    "accountNumber": "ACC-2026-000007",
+    "accountType": "Operating",
+    "currency": "CAD",
+    "balanceMinor": 3850000,
+    "status": "Active",
+    "createdAt": "2026-09-02T12:00:00.000Z"
+  },
+  {
+    "accountId": "48106ac3-1141-47c6-b6bb-f96b72d2a8c9",
+    "clientId": "3bc7a5e4-902f-4452-a1d6-b992bb9913bf",
+    "accountNumber": "ACC-2026-000008",
+    "accountType": "Savings",
+    "currency": "USD",
+    "balanceMinor": 4325000,
+    "status": "Active",
+    "createdAt": "2026-09-02T12:00:00.000Z"
+  },
+  {
+    "accountId": "dc296bf6-eec6-4d09-96ee-57cc31ada135",
+    "clientId": "1fde9c38-7aa1-4c7c-93f5-bf170f15c07f",
+    "accountNumber": "ACC-2026-000009",
+    "accountType": "Investment",
+    "currency": "CAD",
+    "balanceMinor": 4800000,
+    "status": "Active",
+    "createdAt": "2026-09-02T12:00:00.000Z"
+  },
+  {
+    "accountId": "3ddeeff9-0c7b-4ac6-a612-48eaf40de6ad",
+    "clientId": "f148a9b0-0cb9-4c12-b63b-1fbeb113b224",
+    "accountNumber": "ACC-2026-000010",
+    "accountType": "Operating",
+    "currency": "USD",
+    "balanceMinor": 5275000,
+    "status": "Active",
+    "createdAt": "2026-09-02T12:00:00.000Z"
+  },
+  {
+    "accountId": "4d7abeeb-a23d-4529-b789-2a56003bb0dd",
+    "clientId": "56faacf8-6310-4d0e-8a67-1a206eef735b",
+    "accountNumber": "ACC-2026-000011",
+    "accountType": "Savings",
+    "currency": "CAD",
+    "balanceMinor": 5750000,
+    "status": "Active",
+    "createdAt": "2026-09-02T12:00:00.000Z"
+  },
+  {
+    "accountId": "40de920a-5708-4355-8f67-845f30657dc2",
+    "clientId": "5bc908ec-0bc2-4e23-bdbf-b47231f7108c",
+    "accountNumber": "ACC-2026-000012",
+    "accountType": "Investment",
+    "currency": "USD",
+    "balanceMinor": 6225000,
+    "status": "Active",
+    "createdAt": "2026-09-02T12:00:00.000Z"
+  },
+  {
+    "accountId": "ef0267bd-e3ca-4db2-a47c-b2f6f2e5fb03",
+    "clientId": "7da87eb9-0e1a-4120-8efa-dc89facb428e",
+    "accountNumber": "ACC-2026-000013",
+    "accountType": "Operating",
+    "currency": "CAD",
+    "balanceMinor": 6700000,
+    "status": "Active",
+    "createdAt": "2026-09-02T12:00:00.000Z"
+  },
+  {
+    "accountId": "4fe23397-7a5f-4c4a-83f5-ac0e73cf4ea0",
+    "clientId": "ab0c6cc1-834a-4025-9b8b-de5639dd2674",
+    "accountNumber": "ACC-2026-000014",
+    "accountType": "Savings",
+    "currency": "USD",
+    "balanceMinor": 7175000,
+    "status": "Active",
+    "createdAt": "2026-09-02T12:00:00.000Z"
+  },
+  {
+    "accountId": "d484c401-8aef-4427-bd12-ebd13d0a91b3",
+    "clientId": "963f6f3f-ffdb-4545-9eaa-e13b8c9b4941",
+    "accountNumber": "ACC-2026-000015",
+    "accountType": "Investment",
+    "currency": "CAD",
+    "balanceMinor": 7650000,
+    "status": "Active",
+    "createdAt": "2026-09-02T12:00:00.000Z"
+  },
+  {
+    "accountId": "14441a95-7fb1-41cf-9996-9f5d9e9c4b01",
+    "clientId": "85a9081b-142e-4f60-82f7-80bc65764326",
+    "accountNumber": "ACC-2026-000016",
+    "accountType": "Operating",
+    "currency": "USD",
+    "balanceMinor": 8125000,
+    "status": "Active",
+    "createdAt": "2026-09-02T12:00:00.000Z"
+  },
+  {
+    "accountId": "bf641df5-c7f0-45e9-859a-67b69f30a05a",
+    "clientId": "745e0c79-fba0-4fec-8562-6cb6af63bf41",
+    "accountNumber": "ACC-2026-000017",
+    "accountType": "Savings",
+    "currency": "CAD",
+    "balanceMinor": 8600000,
+    "status": "Active",
+    "createdAt": "2026-09-02T12:00:00.000Z"
+  },
+  {
+    "accountId": "1b944d43-280f-4e47-b7f1-c9f3d8796b70",
+    "clientId": "3bc7a5e4-902f-4452-a1d6-b992bb9913bf",
+    "accountNumber": "ACC-2026-000018",
+    "accountType": "Investment",
+    "currency": "USD",
+    "balanceMinor": 9075000,
+    "status": "Active",
+    "createdAt": "2026-09-02T12:00:00.000Z"
+  },
+  {
+    "accountId": "a0a1be95-bf17-43da-a65d-3cf9e5039599",
+    "clientId": "1fde9c38-7aa1-4c7c-93f5-bf170f15c07f",
+    "accountNumber": "ACC-2026-000019",
+    "accountType": "Operating",
+    "currency": "CAD",
+    "balanceMinor": 9550000,
+    "status": "Frozen",
+    "createdAt": "2026-09-02T12:00:00.000Z"
+  },
+  {
+    "accountId": "1efe3bb6-09c3-4ed2-a101-65f325cf1a32",
+    "clientId": "f148a9b0-0cb9-4c12-b63b-1fbeb113b224",
+    "accountNumber": "ACC-2026-000020",
+    "accountType": "Savings",
+    "currency": "USD",
+    "balanceMinor": 10025000,
+    "status": "Closed",
+    "createdAt": "2026-09-02T12:00:00.000Z"
+  }
+]
