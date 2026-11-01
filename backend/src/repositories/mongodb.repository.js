@@ -62,3 +62,30 @@ export function handleDuplicateKey(error, message) {
 
     throw error;
 }
+
+export async function checkDatabaseConnection() {
+    const db = getDatabase();
+
+    const result = await db.command({ ping: 1 });
+
+    return result.ok === 1;
+}
+
+export async function checkMongoPrimaryReady() {
+    const db = getDatabase();
+
+    const result = await db.command({ hello: 1 });
+
+    if (result.isWritablePrimary !== true) {
+        const error = new Error(
+            "Database service unavailable"
+        );
+
+        error.statusCode = 503;
+        error.code = "SERVICE_UNAVAILABLE";
+
+        throw error;
+    }
+
+    return true;
+}

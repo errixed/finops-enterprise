@@ -3,14 +3,18 @@ import "dotenv/config";
 export const PORT = Number(process.env.PORT) || 3000;
 
 export const FRONTEND_ORIGIN =
-    process.env.FRONTEND_ORIGIN || "http://localhost:3001";
+    process.env.CORS_ORIGIN ||
+    process.env.FRONTEND_ORIGIN ||
+    "http://localhost:8080";
 
 export const MONGODB_URI =
     process.env.MONGODB_URI ||
     "mongodb://localhost:27017/finops_enterprise?replicaSet=rs0";
 
 export const MONGODB_DB_NAME =
-    process.env.MONGODB_DB_NAME || "finops_enterprise";
+    process.env.MONGODB_DATABASE ||
+    process.env.MONGODB_DB_NAME ||
+    "finops_enterprise";
 
 export const ENUMS = Object.freeze({
     CLIENT_INDUSTRIES: [

@@ -161,16 +161,21 @@ export default function TransactionsPage() {
         <section className="transactions-directory">
             <div className="transactions-page-header">
                 <div>
-                    <h1>Transaction History</h1>
-                    <p>Search and review historical financial activity</p>
+                    <h1>Transactions</h1>
+                    <p>
+                        View, initiate and manage financial transactions
+                    </p>
                 </div>
 
-                <span className="transactions-readonly-label">
+                <Link
+                    href={ROUTES.transactionCreate}
+                    className="client-details-edit-button"
+                >
                     <span className="material-symbols-rounded">
-                        visibility
+                        add
                     </span>
-                    Read Only
-                </span>
+                    New Transaction
+                </Link>
             </div>
 
             <div className="transactions-filter-bar">

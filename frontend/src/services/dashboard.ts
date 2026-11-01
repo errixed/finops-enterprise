@@ -11,6 +11,8 @@ export interface RecentTransaction {
     currency: string;
     status: string;
     createdAt: string;
+    updatedAt: string;
+    processedAt: string | null;
 }
 
 export interface DashboardSummary {
@@ -18,15 +20,26 @@ export interface DashboardSummary {
     activeClients: number;
     activeAccounts: number;
     totalTransactions: number;
+
     pendingTransactions: number;
+    processingTransactions: number;
     completedTransactions: number;
     rejectedTransactions: number;
+
     transactionStatuses: {
         Pending: number;
+        Processing: number;
         Completed: number;
         Rejected: number;
     };
+
+    completedVolumes: {
+        CAD: number;
+        USD: number;
+    };
+
     recentTransactions: RecentTransaction[];
+    recentProcessingActivity: RecentTransaction[];
 }
 
 export async function getDashboardSummary(

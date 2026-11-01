@@ -12,7 +12,8 @@ export async function getDashboardStatistics() {
         activeClients,
         activeAccounts,
         totalTransactions,
-        statusGroups
+        statusGroups,
+        completedVolumeGroups
     ] = await Promise.all([
         clients.countDocuments(),
         clients.countDocuments({ status: "Active" }),
@@ -25,6 +26,21 @@ export async function getDashboardStatistics() {
                     count: { $sum: 1 }
                 }
             }
+        ]).toArray(),
+        transactions.aggregate([
+            {
+                $match: {
+                    status: "Completed",
+                    transactionType: "Transfer",
+                    currency: { $in: ["CAD", "USD"] }
+                }
+            },
+            {
+                $group: {
+                    _id: "$currency",
+                    volumeMinor: { $sum: "$amountMinor" }
+                }
+            }
         ]).toArray()
     ]);
 
@@ -33,7 +49,8 @@ export async function getDashboardStatistics() {
         activeClients,
         activeAccounts,
         totalTransactions,
-        statusGroups
+        statusGroups,
+        completedVolumeGroups
     };
 }
 
@@ -44,6 +61,19 @@ export async function findRecentTransactions(limit = 5) {
         .find({})
         .sort({
             createdAt: -1,
+            transactionId: 1
+        })
+        .limit(limit)
+        .toArray();
+}
+
+export async function findRecentProcessingActivity(limit = 5) {
+    const db = getDatabase();
+
+    return db.collection("transactions")
+        .find({})
+        .sort({
+            updatedAt: -1,
             transactionId: 1
         })
         .limit(limit)

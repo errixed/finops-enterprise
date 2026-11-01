@@ -1,8 +1,8 @@
 import express from "express";
-
 import {
     getClients,
     getClient,
+    getClientAccounts,
     registerClient,
     editClient,
     getClientOptions
@@ -12,9 +12,9 @@ const router = express.Router();
 
 router.get("/", getClients);
 router.get("/options", getClientOptions);
+router.get("/:id/accounts", getClientAccounts);
 router.get("/:id", getClient);
 router.post("/", registerClient);
 router.put("/:id", editClient);
 router.patch("/:id", editClient);
-
 export default router;

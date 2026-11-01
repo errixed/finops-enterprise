@@ -6,10 +6,16 @@ services:
     volumes:
       - mongodb_data:/data/db
     healthcheck:
-      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      test:
+        - CMD
+        - mongosh
+        - --quiet
+        - --eval
+        - "if (db.adminCommand('ping').ok !== 1) quit(1)"
       interval: 5s
       timeout: 5s
       retries: 20
+      start_period: 10s
     networks:
       - finops_network
 
@@ -25,12 +31,13 @@ services:
     networks:
       - finops_network
 
-  migration:
+  migrate:
     build:
       context: ./backend
     environment:
-      MONGODB_URI: "mongodb://mongodb:27017/finops_enterprise?replicaSet=rs0"
-      MONGODB_DB_NAME: "finops_enterprise"
+      NODE_ENV: ${NODE_ENV:-production}
+      MONGODB_URI: ${MONGODB_URI:-mongodb://mongodb:27017/finops_enterprise?replicaSet=rs0}
+      MONGODB_DATABASE: ${MONGODB_DATABASE:-finops_enterprise}
     command: ["node", "scripts/migrate-json-to-mongodb.js"]
     depends_on:
       mongo-init:
@@ -44,13 +51,24 @@ services:
       context: ./backend
     restart: unless-stopped
     environment:
-      PORT: "3000"
-      FRONTEND_ORIGIN: "http://localhost:8080"
-      MONGODB_URI: "mongodb://mongodb:27017/finops_enterprise?replicaSet=rs0"
-      MONGODB_DB_NAME: "finops_enterprise"
+      PORT: ${PORT:-3000}
+      NODE_ENV: ${NODE_ENV:-production}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:8080}
+      MONGODB_URI: ${MONGODB_URI:-mongodb://mongodb:27017/finops_enterprise?replicaSet=rs0}
+      MONGODB_DATABASE: ${MONGODB_DATABASE:-finops_enterprise}
     depends_on:
-      migration:
+      migrate:
         condition: service_completed_successfully
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3000/api/v1/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
     networks:
       - finops_network
 
@@ -58,8 +76,23 @@ services:
     build:
       context: ./frontend
     restart: unless-stopped
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      PORT: "3001"
+      HOSTNAME: "0.0.0.0"
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3001/').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
     networks:
       - finops_network
 
@@ -67,12 +100,22 @@ services:
     image: nginx:alpine
     restart: unless-stopped
     ports:
-      - "8080:80"
+      - "${FRONTEND_PORT:-8080}:80"
     volumes:
       - ./frontend/nginx.conf:/etc/nginx/conf.d/default.conf:ro
     depends_on:
-      - frontend
-      - backend
+      frontend:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - "wget -q -O /dev/null http://127.0.0.1/ || exit 1"
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
     networks:
       - finops_network
 

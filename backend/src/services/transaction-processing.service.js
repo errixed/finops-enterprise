@@ -1,21 +1,21 @@
 import { Long } from "mongodb";
 import { getMongoClient } from "../config/mongodb.js";
-
 import {
     findTransactionForProcessing,
     updateTransactionStatus,
     findTransactionById
 } from "../repositories/transaction.repository.js";
-
 import {
     findAccountForProcessing,
     updateProcessingBalance
 } from "../repositories/account.repository.js";
-
 import {
     isEligibleForProcessing,
     TRANSACTION_REJECTION_CODES
 } from "../utils/transaction-lifecycle.js";
+import {
+    checkMongoPrimaryReady
+} from "../repositories/mongodb.repository.js";
 
 const MAX_BALANCE = BigInt(Number.MAX_SAFE_INTEGER);
 
@@ -126,7 +126,11 @@ async function rejectTransaction(
     return "Rejected";
 }
 
-async function executeTransfer(transactionId, session) {
+async function executeTransfer(
+    transactionId,
+    session,
+    { afterDebit } = {}
+) {
     const transaction = await findTransactionForProcessing(
         transactionId,
         session
@@ -271,6 +275,10 @@ async function executeTransfer(transactionId, session) {
         );
     }
 
+    if (afterDebit) {
+        await afterDebit();
+    }
+
     const credited = await updateProcessingBalance({
         accountId: destination.accountId,
         expectedBalanceMinor: destinationBefore,
@@ -296,7 +304,10 @@ async function executeTransfer(transactionId, session) {
     return "Completed";
 }
 
-export async function processTransaction(transactionId) {
+export async function processTransaction(
+    transactionId,
+    options = {}
+) {
     if (
         typeof transactionId !== "string" ||
         !UUID_PATTERN.test(transactionId)
@@ -307,12 +318,13 @@ export async function processTransaction(transactionId) {
             "INVALID_TRANSACTION_ID"
         );
     }
+    await checkMongoPrimaryReady();
 
     const session = getMongoClient().startSession();
 
     try {
         const outcome = await session.withTransaction(
-            () => executeTransfer(transactionId, session),
+            () => executeTransfer(transactionId, session, options),
             {
                 readConcern: {
                     level: "snapshot"

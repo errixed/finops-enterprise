@@ -202,6 +202,16 @@ export async function getClientById(clientId) {
     };
 }
 
+export async function getClientAccountsById(clientId) {
+    const client = await findClientById(clientId);
+
+    if (!client) {
+        fail("Client not found", 404);
+    }
+
+    return findAccountsByClientId(clientId);
+}
+
 export async function createClient(input) {
     const fields = validateFields(input);
 
