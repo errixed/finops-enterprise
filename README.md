@@ -31,6 +31,8 @@ Copy the provided environment configuration:
 cp .env.example .env
 ```
 
+Windows users: Run this command in Windows PowerShell, as the cp command is supported in PowerShell.
+
 The default configuration is:
 
 ```env
