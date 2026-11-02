@@ -1,5 +1,6 @@
 import {
     getDashboardStatistics,
+    getDashboardGrowthStatistics,
     findRecentTransactions,
     findRecentProcessingActivity,
     findDashboardAccounts
@@ -32,14 +33,15 @@ function toSafeVolumeMinor(value) {
 export async function getDashboardSummary() {
     const [
         statistics,
+        growthStatistics,
         recentDocuments,
         activityDocuments
     ] = await Promise.all([
         getDashboardStatistics(),
+        getDashboardGrowthStatistics(),
         findRecentTransactions(5),
         findRecentProcessingActivity(5)
     ]);
-
     const transactionStatuses = {
         Pending: 0,
         Processing: 0,
@@ -110,8 +112,11 @@ export async function getDashboardSummary() {
     return {
         totalClients: statistics.totalClients,
         activeClients: statistics.activeClients,
+        totalAccounts: statistics.totalAccounts,
         activeAccounts: statistics.activeAccounts,
         totalTransactions: statistics.totalTransactions,
+
+        growthStatistics,
 
         pendingTransactions: transactionStatuses.Pending,
         processingTransactions: transactionStatuses.Processing,

@@ -163,6 +163,7 @@ export async function getAllClients({
     search = "",
     status = "",
     industry = "",
+    country = "",
     page = 1,
     pageSize = 10
 } = {}) {
@@ -174,6 +175,10 @@ export async function getAllClients({
         fail("Unsupported industry filter", 400, "industry");
     }
 
+    if (country && !COUNTRIES.includes(country)) {
+        fail("Unsupported country filter", 400, "country");
+    }
+
     if (typeof search !== "string") {
         fail("Invalid search parameter", 400, "search");
     }
@@ -182,6 +187,7 @@ export async function getAllClients({
         search,
         status,
         industry,
+        country,
         page,
         pageSize
     });

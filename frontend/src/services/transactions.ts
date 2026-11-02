@@ -42,6 +42,7 @@ export interface TransactionFilters {
     search?: string;
     sourceAccountId?: string;
     status?: string;
+    currency?: string;
     dateFrom?: string;
     dateTo?: string;
     page?: number;

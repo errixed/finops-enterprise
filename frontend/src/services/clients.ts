@@ -11,6 +11,7 @@ export interface Client {
     status: string;
     createdAt: string;
     updatedAt: string;
+    accountCount?: number;
 }
 
 export interface Account {
@@ -37,8 +38,9 @@ export interface ClientInput {
 
 export interface ClientFilters {
     search?: string;
-    status?: string;
     industry?: string;
+    country?: string;
+    status?: string;
     page?: number;
     pageSize?: number;
 }

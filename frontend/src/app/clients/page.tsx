@@ -2,56 +2,66 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ROUTES, PAGINATION } from "../../../config";
+import { PAGINATION, ROUTES } from "../../../config";
 import {
-    Client,
     ClientListResult,
     ClientOptions,
     getClients,
     getClientOptions
 } from "@/services/clients";
-import { createPortal } from "react-dom";
 
 export default function ClientsPage() {
     const [result, setResult] = useState<ClientListResult | null>(null);
     const [options, setOptions] = useState<ClientOptions | null>(null);
 
     const [search, setSearch] = useState("");
-    const [status, setStatus] = useState("");
     const [industry, setIndustry] = useState("");
+    const [country, setCountry] = useState("");
+    const [status, setStatus] = useState("");
 
-    const [page, setPage] = useState<number>(PAGINATION.DEFAULT_PAGE);
-    const [pageSize, setPageSize] = useState<number>(PAGINATION.DEFAULT_PAGE_SIZE);
+    const [page, setPage] = useState(1);
+    const pageSize = PAGINATION.DEFAULT_PAGE_SIZE;
 
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
-    const [openMenu, setOpenMenu] = useState<string | null>(null);
-    const [menuPosition, setMenuPosition] = useState({ top: 0, right: 0 });
 
     useEffect(() => {
+        let active = true;
+
         getClientOptions()
-            .then(setOptions)
-            .catch(err =>
-                setError(
-                    err instanceof Error
-                        ? err.message
-                        : "Unable to load filter options"
-                )
-            );
+            .then(data => {
+                if (active) {
+                    setOptions(data);
+                }
+            })
+            .catch(err => {
+                if (active) {
+                    setError(
+                        err instanceof Error
+                            ? err.message
+                            : "Unable to load client options"
+                    );
+                }
+            });
+
+        return () => {
+            active = false;
+        };
     }, []);
 
     useEffect(() => {
         let active = true;
 
-        async function load() {
+        async function loadClients() {
             setLoading(true);
             setError("");
 
             try {
                 const data = await getClients({
                     search,
-                    status,
                     industry,
+                    country,
+                    status,
                     page,
                     pageSize
                 });
@@ -75,61 +85,73 @@ export default function ClientsPage() {
             }
         }
 
-        load();
+        loadClients();
 
         return () => {
             active = false;
         };
-    }, [search, status, industry, page, pageSize]);
+    }, [search, industry, country, status, page, pageSize]);
 
     function clearFilters() {
         setSearch("");
-        setStatus("");
         setIndustry("");
-        setPage(1);
-    }
-
-    function changePageSize(value: number) {
-        setPageSize(value);
+        setCountry("");
+        setStatus("");
         setPage(1);
     }
 
     const total = result?.pagination.total ?? 0;
     const totalPages = result?.pagination.totalPages ?? 0;
+
     const start = total === 0 ? 0 : (page - 1) * pageSize + 1;
     const end = Math.min(page * pageSize, total);
 
-    const pages = Array.from(
-        { length: totalPages },
-        (_, index) => index + 1
+    const hasFilters = Boolean(
+        search || industry || country || status
     );
 
-    const hasFilters = Boolean(search || status || industry);
+    const visiblePages = Array.from(
+        { length: Math.min(5, totalPages) },
+        (_, index) => {
+            const firstPage = Math.max(
+                1,
+                Math.min(page - 2, totalPages - 4)
+            );
+
+            return firstPage + index;
+        }
+    );
 
     return (
         <section className="clients-directory">
             <div className="clients-page-header">
-                <div>
-                    <h1>Corporate Clients</h1>
-                    <p>Manage corporate client information</p>
-                </div>
+                <h1>Corporate Clients</h1>
 
-                <Link href={ROUTES.clientRegistration} className="clients-register-button">
-                    <span className="material-symbols-rounded">add</span>
+                <Link
+                    href={ROUTES.clientRegistration}
+                    className="clients-register-button"
+                >
+                    <span className="material-symbols-rounded">
+                        add
+                    </span>
                     Register Client
                 </Link>
             </div>
 
             <div className="clients-directory-card">
                 <div className="clients-filter-bar">
-                    <div className="clients-search">
-                        <span className="material-symbols-rounded">
-                            search
-                        </span>
+                    <div className="clients-search-filter">
+                        <label htmlFor="client-search">
+                            <span className="material-symbols-rounded">
+                                search
+                            </span>
+                            Search
+                        </label>
 
                         <input
+                            id="client-search"
                             type="search"
-                            placeholder="Search by name or registration number..."
+                            placeholder="Name or registration number"
                             value={search}
                             onChange={event => {
                                 setSearch(event.target.value);
@@ -138,53 +160,87 @@ export default function ClientsPage() {
                         />
                     </div>
 
-                    <select
-                        className="clients-filter-select"
-                        value={status}
-                        onChange={event => {
-                            setStatus(event.target.value);
-                            setPage(1);
-                        }}
-                        aria-label="Filter by status"
-                    >
-                        <option value="">All Statuses</option>
+                    <div className="clients-filter-field">
+                        <label htmlFor="client-industry">
+                            Industry
+                        </label>
 
-                        {options?.statuses.map(item => (
-                            <option key={item} value={item}>
-                                {item}
-                            </option>
-                        ))}
-                    </select>
+                        <select
+                            id="client-industry"
+                            value={industry}
+                            onChange={event => {
+                                setIndustry(event.target.value);
+                                setPage(1);
+                            }}
+                        >
+                            <option value="">All Industries</option>
 
-                    <select
-                        className="clients-filter-select"
-                        value={industry}
-                        onChange={event => {
-                            setIndustry(event.target.value);
-                            setPage(1);
-                        }}
-                        aria-label="Filter by industry"
-                    >
-                        <option value="">All Industries</option>
+                            {options?.industries.map(item => (
+                                <option key={item} value={item}>
+                                    {item}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
 
-                        {options?.industries.map(item => (
-                            <option key={item} value={item}>
-                                {item}
-                            </option>
-                        ))}
-                    </select>
+                    <div className="clients-filter-field">
+                        <label htmlFor="client-country">
+                            Country
+                        </label>
 
-                    <button
-                        type="button"
-                        className="clients-clear-button"
-                        onClick={clearFilters}
-                        disabled={!hasFilters}
-                    >
-                        <span className="material-symbols-rounded">
-                            restart_alt
-                        </span>
-                        Clear
-                    </button>
+                        <select
+                            id="client-country"
+                            value={country}
+                            onChange={event => {
+                                setCountry(event.target.value);
+                                setPage(1);
+                            }}
+                        >
+                            <option value="">All Countries</option>
+
+                            {options?.countries.map(item => (
+                                <option key={item} value={item}>
+                                    {item}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+
+                    <div className="clients-filter-field">
+                        <label htmlFor="client-status">
+                            Status
+                        </label>
+
+                        <select
+                            id="client-status"
+                            value={status}
+                            onChange={event => {
+                                setStatus(event.target.value);
+                                setPage(1);
+                            }}
+                        >
+                            <option value="">All Statuses</option>
+
+                            {options?.statuses.map(item => (
+                                <option key={item} value={item}>
+                                    {item}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+
+                    {hasFilters && (
+                        <button
+                            type="button"
+                            className="clients-reset-button"
+                            onClick={clearFilters}
+                        >
+                            <span className="material-symbols-rounded">
+                                restart_alt
+                            </span>
+                            Clear Filters
+                        </button>
+                    )}
                 </div>
 
                 <div className="clients-table-scroll">
@@ -192,10 +248,11 @@ export default function ClientsPage() {
                         <thead>
                             <tr>
                                 <th>Company Name</th>
-                                <th>Registration #</th>
+                                <th>Registration Number</th>
                                 <th>Industry</th>
                                 <th>Country</th>
                                 <th>Status</th>
+                                <th>Accounts</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
@@ -203,34 +260,38 @@ export default function ClientsPage() {
                         <tbody>
                             {loading ? (
                                 <tr>
-                                    <td colSpan={6} className="clients-message">
+                                    <td colSpan={7} className="clients-message">
                                         Loading clients...
                                     </td>
                                 </tr>
                             ) : error ? (
                                 <tr>
                                     <td
-                                        colSpan={6}
+                                        colSpan={7}
                                         className="clients-message clients-error"
                                     >
                                         {error}
                                     </td>
                                 </tr>
-                            ) : result?.data.length === 0 ? (
+                            ) : !result?.data.length ? (
                                 <tr>
-                                    <td colSpan={6} className="clients-message">
-                                        No clients match your search or filters.
+                                    <td colSpan={7} className="clients-message">
+                                        No clients found.
                                     </td>
                                 </tr>
                             ) : (
-                                result?.data.map((client: Client) => (
+                                result.data.map(client => (
                                     <tr key={client.clientId}>
                                         <td className="clients-company-name">
                                             {client.companyName}
                                         </td>
 
-                                        <td>{client.registrationNumber}</td>
+                                        <td className="clients-registration">
+                                            {client.registrationNumber}
+                                        </td>
+
                                         <td>{client.industry}</td>
+
                                         <td>{client.country}</td>
 
                                         <td>
@@ -241,65 +302,37 @@ export default function ClientsPage() {
                                             </span>
                                         </td>
 
+                                        <td className="clients-account-count">
+                                            {client.accountCount}
+                                        </td>
+
                                         <td>
                                             <div className="clients-actions">
                                                 <Link
-                                                    href={ROUTES.clientDetails(client.clientId)}
-                                                    className="clients-view-button"
+                                                    href={ROUTES.clientDetails(
+                                                        client.clientId
+                                                    )}
+                                                    className="clients-icon-button"
+                                                    aria-label={`View ${client.companyName}`}
+                                                    title="View Client"
                                                 >
                                                     <span className="material-symbols-rounded">
-                                                        open_in_new
+                                                        visibility
                                                     </span>
-                                                    View
                                                 </Link>
 
-                                                <div className="clients-action-menu">
-                                                    <button
-                                                        type="button"
-                                                        className="clients-more-button"
-                                                        aria-label={`More actions for ${client.companyName}`}
-                                                        aria-expanded={openMenu === client.clientId}
-                                                        onClick={(e) => {
-                                                            const rect = e.currentTarget.getBoundingClientRect();
-
-                                                            setMenuPosition({
-                                                                top: rect.bottom + 6,
-                                                                right: window.innerWidth - rect.right
-                                                            });
-
-                                                            setOpenMenu(current =>
-                                                                current === client.clientId ? null : client.clientId
-                                                            );
-                                                        }}
-                                                    >
-                                                        <span className="material-symbols-rounded">
-                                                            more_horiz
-                                                        </span>
-                                                    </button>
-
-                                                    {openMenu === client.clientId && createPortal(
-                                                        <div
-                                                            className="clients-menu-dropdown"
-                                                            style={{
-                                                                position: "fixed",
-                                                                top: menuPosition.top,
-                                                                right: menuPosition.right,
-                                                                zIndex: 9999
-                                                            }}
-                                                        >
-                                                            <Link
-                                                                href={ROUTES.clientEdit(client.clientId)}
-                                                                onClick={() => setOpenMenu(null)}
-                                                            >
-                                                                <span className="material-symbols-rounded">
-                                                                    edit
-                                                                </span>
-                                                                Edit Client
-                                                            </Link>
-                                                        </div>,
-                                                        document.body
+                                                <Link
+                                                    href={ROUTES.clientEdit(
+                                                        client.clientId
                                                     )}
-                                                </div>
+                                                    className="clients-icon-button"
+                                                    aria-label={`Edit ${client.companyName}`}
+                                                    title="Edit Client"
+                                                >
+                                                    <span className="material-symbols-rounded">
+                                                        edit
+                                                    </span>
+                                                </Link>
                                             </div>
                                         </td>
                                     </tr>
@@ -311,10 +344,13 @@ export default function ClientsPage() {
 
                 <div className="clients-table-footer">
                     <p>
-                        Showing {start} to {end} of {total} clients
+                        Showing {start}-{end} of {total} clients
                     </p>
 
-                    <div className="clients-pagination">
+                    <nav
+                        className="clients-pagination"
+                        aria-label="Client pagination"
+                    >
                         <button
                             type="button"
                             className="clients-page-button"
@@ -328,12 +364,16 @@ export default function ClientsPage() {
                         </button>
 
                         <div className="clients-page-numbers">
-                            {pages.map(number => (
+                            {visiblePages.map(number => (
                                 <button
-                                    key={number}
                                     type="button"
-                                    className={`clients-page-button ${page === number ? "selected" : ""
-                                        }`}
+                                    key={number}
+                                    className={`clients-page-button ${
+                                        page === number ? "selected" : ""
+                                    }`}
+                                    aria-current={
+                                        page === number ? "page" : undefined
+                                    }
                                     onClick={() => setPage(number)}
                                     disabled={loading}
                                 >
@@ -353,22 +393,7 @@ export default function ClientsPage() {
                                 chevron_right
                             </span>
                         </button>
-
-                        <select
-                            className="clients-page-size"
-                            value={pageSize}
-                            onChange={event =>
-                                changePageSize(Number(event.target.value))
-                            }
-                            aria-label="Clients per page"
-                        >
-                            {PAGINATION.PAGE_SIZE_OPTIONS.map(size => (
-                                <option key={size} value={size}>
-                                    {size} / page
-                                </option>
-                            ))}
-                        </select>
-                    </div>
+                    </nav>
                 </div>
             </div>
         </section>

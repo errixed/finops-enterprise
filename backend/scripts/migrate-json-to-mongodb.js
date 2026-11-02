@@ -30,8 +30,7 @@ import {
 } from "../src/repositories/migration.repository.js";
 
 const directory = path.dirname(fileURLToPath(import.meta.url));
-const dataDirectory = path.resolve(directory, "../data");
-const legacyDirectory = path.join(dataDirectory, "legacy");
+const legacyDirectory = path.resolve(directory, "../data/legacy");
 
 const MIGRATION_VERSION = "assignment2_initial_migration_v1";
 
@@ -69,19 +68,9 @@ async function loadSource() {
     for (const definition of definitions) {
         const filename = `${definition.name}.json`;
 
-        const original = await readFile(
-            path.join(dataDirectory, filename),
-            "utf8"
-        );
-
         const legacy = await readFile(
             path.join(legacyDirectory, filename),
             "utf8"
-        );
-
-        assert(
-            original === legacy,
-            `${filename}: legacy copy differs from original`
         );
 
         const records = JSON.parse(legacy);

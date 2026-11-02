@@ -19,6 +19,7 @@ export interface Transaction {
     destinationAccountId: string;
     amountMinor: number;
     currency: string;
+    transactionType?: string;
     status: string;
     createdAt: string;
 }

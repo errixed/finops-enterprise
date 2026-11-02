@@ -43,6 +43,7 @@ export async function searchTransactions({
     search = "",
     sourceAccountId = "",
     status = "",
+    currency = "",
     dateFrom = "",
     dateTo = "",
     page = 1,
@@ -51,10 +52,37 @@ export async function searchTransactions({
     const filter = {};
 
     if (search.trim()) {
-        filter.referenceNumber = {
+        const query = {
             $regex: escapeRegex(search.trim()),
             $options: "i"
         };
+
+        const matchingAccounts = await getCollection("accounts")
+            .find(
+                { accountNumber: query },
+                { projection: { accountId: 1 } }
+            )
+            .toArray();
+
+        const matchingAccountIds = matchingAccounts.map(
+            account => account.accountId
+        );
+
+        filter.$or = [
+            {
+                referenceNumber: query
+            },
+            {
+                sourceAccountId: {
+                    $in: matchingAccountIds
+                }
+            },
+            {
+                destinationAccountId: {
+                    $in: matchingAccountIds
+                }
+            }
+        ];
     }
 
     if (sourceAccountId) {
@@ -63,6 +91,10 @@ export async function searchTransactions({
 
     if (status) {
         filter.status = status;
+    }
+
+    if (currency) {
+        filter.currency = currency;
     }
 
     if (dateFrom || dateTo) {
@@ -85,7 +117,10 @@ export async function searchTransactions({
     return findPage({
         collection: transactions(),
         filter,
-        sort: { createdAt: -1, transactionId: 1 },
+        sort: {
+            createdAt: -1,
+            transactionId: 1
+        },
         page,
         pageSize,
         serialize: serializeTransactionDocument

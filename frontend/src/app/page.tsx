@@ -1,4 +1,5 @@
 "use client";
+
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
@@ -12,6 +13,7 @@ import { ROUTES } from "../../config";
 const emptySummary: DashboardSummary = {
     totalClients: 0,
     activeClients: 0,
+    totalAccounts: 0,
     activeAccounts: 0,
     totalTransactions: 0,
     pendingTransactions: 0,
@@ -29,7 +31,12 @@ const emptySummary: DashboardSummary = {
         USD: 0
     },
     recentTransactions: [],
-    recentProcessingActivity: []
+    recentProcessingActivity: [],
+    growthStatistics: {
+        newClientsThisMonth: 0,
+        newAccountsThisMonth: 0,
+        completedTransactionsThisWeek: 0
+    },
 };
 
 function formatDate(value: string) {
@@ -39,61 +46,142 @@ function formatDate(value: string) {
         return "Not available";
     }
 
-    return date.toLocaleString("en-CA", {
+    return date.toLocaleDateString("en-US", {
         month: "short",
-        day: "numeric",
-        year: "numeric",
-        hour: "numeric",
-        minute: "2-digit"
+        day: "2-digit",
+        year: "numeric"
     });
 }
 
-function TransactionTable({
-    transactions,
-    dateField
+function MetricCard({
+    label,
+    value,
+    tone,
+    growth,
+    growthPeriod
 }: {
-    transactions: RecentTransaction[];
-    dateField: "createdAt" | "updatedAt";
+    label: string;
+    value: number;
+    tone?: string;
+    growth?: number;
+    growthPeriod?: string;
 }) {
     return (
-        <div className="dashboard-table-wrap">
-            <table className="dashboard-table">
+        <div className="finops-stat-card">
+            <span className="finops-stat-label">
+                {label}
+            </span>
+
+            <strong className={`finops-stat-value ${tone ?? ""}`}>
+                {value.toLocaleString("en-CA")}
+            </strong>
+
+            {growth !== undefined && growthPeriod && (
+                <div className="finops-stat-growth">
+                    <span className="material-symbols-rounded">
+                        arrow_upward
+                    </span>
+
+                    <span>
+                        +{growth.toLocaleString("en-CA")} {growthPeriod}
+                    </span>
+                </div>
+            )}
+        </div>
+    );
+}
+
+function VolumeSection({
+    currency,
+    amountMinor,
+    percentage
+}: {
+    currency: "CAD" | "USD";
+    amountMinor: number;
+    percentage: number;
+}) {
+    return (
+        <div className={`finops-volume-item ${currency.toLowerCase()}`}>
+            <span className="finops-volume-marker" />
+
+            <div className="finops-volume-content">
+                <strong className="finops-volume-amount">
+                    {currency} {formatMoney(amountMinor, currency)}
+                </strong>
+
+                <div
+                    className="finops-volume-track"
+                    role="progressbar"
+                    aria-label={`${currency} share of completed transaction volume`}
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    aria-valuenow={Math.round(percentage)}
+                >
+                    <div
+                        className="finops-volume-fill"
+                        style={{ width: `${percentage}%` }}
+                    />
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function ActivityTable({
+    transactions
+}: {
+    transactions: RecentTransaction[];
+}) {
+    return (
+        <div className="finops-activity-scroll">
+            <table className="finops-activity-table">
                 <thead>
                     <tr>
-                        <th>Reference #</th>
+                        <th>Date</th>
+                        <th>Reference</th>
+                        <th>From Account</th>
+                        <th>To Account</th>
                         <th>Amount</th>
-                        <th>Currency</th>
                         <th>Status</th>
-                        <th>
-                            {dateField === "updatedAt"
-                                ? "Last Updated"
-                                : "Date"}
-                        </th>
                     </tr>
                 </thead>
 
                 <tbody>
                     {transactions.length === 0 ? (
                         <tr>
-                            <td
-                                colSpan={5}
-                                className="empty-row"
-                            >
-                                No recent transactions
+                            <td colSpan={6} className="finops-empty">
+                                No recent processing activity
                             </td>
                         </tr>
                     ) : (
                         transactions.map(transaction => (
                             <tr key={transaction.transactionId}>
                                 <td>
+                                    {formatDate(
+                                        transaction.updatedAt ??
+                                        transaction.createdAt
+                                    )}
+                                </td>
+
+                                <td>
                                     <Link
                                         href={ROUTES.transactionDetails(
                                             transaction.transactionId
                                         )}
-                                        className="table-link"
+                                        className="finops-reference-link"
                                     >
                                         {transaction.referenceNumber}
                                     </Link>
+                                </td>
+
+                                <td>
+                                    {transaction.sourceAccountNumber ||
+                                        transaction.sourceAccountId}
+                                </td>
+
+                                <td>
+                                    {transaction.destinationAccountNumber ||
+                                        transaction.destinationAccountId}
                                 </td>
 
                                 <td>
@@ -103,20 +191,13 @@ function TransactionTable({
                                     )}
                                 </td>
 
-                                <td>{transaction.currency}</td>
-
                                 <td>
                                     <span
-                                        className={`status-pill ${transaction.status.toLowerCase()}`}
+                                        className={`finops-status ${transaction.status.toLowerCase()
+                                            }`}
                                     >
                                         {transaction.status}
                                     </span>
-                                </td>
-
-                                <td>
-                                    {formatDate(
-                                        transaction[dateField]
-                                    )}
                                 </td>
                             </tr>
                         ))
@@ -169,281 +250,111 @@ export default function DashboardPage() {
         return () => controller.abort();
     }, []);
 
-    const statuses = summary.transactionStatuses;
+    const cadVolume = summary.completedVolumes.CAD;
+    const usdVolume = summary.completedVolumes.USD;
+    const totalVolume = cadVolume + usdVolume;
 
-    const totalStatusCount =
-        statuses.Pending +
-        statuses.Processing +
-        statuses.Completed +
-        statuses.Rejected;
+    const cadPercentage =
+        totalVolume > 0 ? (cadVolume / totalVolume) * 100 : 0;
 
-    const percentage = (count: number) =>
-        totalStatusCount > 0
-            ? (count / totalStatusCount) * 100
-            : 0;
-
-    const completedEnd = percentage(statuses.Completed);
-
-    const processingEnd =
-        completedEnd + percentage(statuses.Processing);
-
-    const pendingEnd =
-        processingEnd + percentage(statuses.Pending);
-
-    const rejectedEnd =
-        pendingEnd + percentage(statuses.Rejected);
-
-    const donutStyle = {
-        background: `conic-gradient(
-            #22c55e 0% ${completedEnd}%,
-            #3b82f6 ${completedEnd}% ${processingEnd}%,
-            #fbbf24 ${processingEnd}% ${pendingEnd}%,
-            #ef4444 ${pendingEnd}% ${rejectedEnd}%,
-            #e5e7eb ${rejectedEnd}% 100%
-        )`
-    };
-
-    const metricCards = [
-        {
-            label: "Total Clients",
-            value: summary.totalClients,
-            icon: "group",
-            tone: "blue"
-        },
-        {
-            label: "Active Clients",
-            value: summary.activeClients,
-            icon: "person",
-            tone: "green"
-        },
-        {
-            label: "Active Accounts",
-            value: summary.activeAccounts,
-            icon: "account_balance_wallet",
-            tone: "indigo"
-        },
-        {
-            label: "Total Transactions",
-            value: summary.totalTransactions,
-            icon: "receipt_long",
-            tone: "red"
-        },
-        {
-            label: "Pending Transactions",
-            value: statuses.Pending,
-            icon: "schedule",
-            tone: "indigo"
-        },
-        {
-            label: "Processing Transactions",
-            value: statuses.Processing,
-            icon: "sync",
-            tone: "blue"
-        },
-        {
-            label: "Completed Transactions",
-            value: statuses.Completed,
-            icon: "check_circle",
-            tone: "green"
-        },
-        {
-            label: "Rejected Transactions",
-            value: statuses.Rejected,
-            icon: "cancel",
-            tone: "red"
-        }
-    ];
-
-    const volumeCards = [
-        {
-            label: "Completed CAD Volume",
-            currency: "CAD",
-            amountMinor: summary.completedVolumes.CAD,
-            icon: "payments",
-            tone: "green"
-        },
-        {
-            label: "Completed USD Volume",
-            currency: "USD",
-            amountMinor: summary.completedVolumes.USD,
-            icon: "payments",
-            tone: "blue"
-        }
-    ];
-
-    const statusLegend = [
-        {
-            label: "Completed",
-            value: statuses.Completed,
-            tone: "completed"
-        },
-        {
-            label: "Processing",
-            value: statuses.Processing,
-            tone: "processing"
-        },
-        {
-            label: "Pending",
-            value: statuses.Pending,
-            tone: "pending"
-        },
-        {
-            label: "Rejected",
-            value: statuses.Rejected,
-            tone: "rejected"
-        }
-    ];
+    const usdPercentage =
+        totalVolume > 0 ? (usdVolume / totalVolume) * 100 : 0;
 
     return (
-        <section className="dashboard-page">
-            <div className="dashboard-header">
-                <h1>Operations Dashboard</h1>
-                <p>
-                    Overview of clients, accounts and
-                    transaction activity
-                </p>
-            </div>
-
+        <section className="finops-dashboard">
             {loading && (
-                <p className="dashboard-message" role="status">
+                <p className="finops-dashboard-message" role="status">
                     Loading dashboard...
                 </p>
             )}
 
             {error && !loading && (
-                <div className="dashboard-error" role="alert">
-                    <p>{error}</p>
+                <div className="finops-dashboard-error" role="alert">
+                    {error}
                 </div>
             )}
 
             {!loading && !error && (
                 <>
-                    <div className="dashboard-metric-grid">
-                        {metricCards.map(card => (
-                            <div
-                                key={card.label}
-                                className="dashboard-metric-card"
-                            >
-                                <div
-                                    className={`metric-icon ${card.tone}`}
-                                >
-                                    <span className="material-symbols-rounded">
-                                        {card.icon}
-                                    </span>
-                                </div>
+                    <div className="finops-stat-grid">
 
-                                <div className="metric-copy">
-                                    <h2>{card.value}</h2>
-                                    <p>{card.label}</p>
-                                </div>
-                            </div>
-                        ))}
+                        <MetricCard
+                            label="Total Clients"
+                            value={summary.totalClients}
+                            growth={summary.growthStatistics.newClientsThisMonth}
+                            growthPeriod="this month"
+                        />
+
+                        <MetricCard
+                            label="Total Accounts"
+                            value={summary.totalAccounts}
+                            growth={summary.growthStatistics.newAccountsThisMonth}
+                            growthPeriod="this month"
+                        />
+
+                        <MetricCard
+                            label="Pending Transactions"
+                            value={summary.pendingTransactions}
+                            tone="danger"
+                        />
+
+                        <MetricCard
+                            label="Processing Transactions"
+                            value={summary.processingTransactions}
+                            tone="info"
+                        />
+
+                        <MetricCard
+                            label="Completed Transactions"
+                            value={summary.completedTransactions}
+                            growth={summary.growthStatistics.completedTransactionsThisWeek}
+                            growthPeriod="this week"
+                        />
+
+                        <MetricCard
+                            label="Rejected Transactions"
+                            value={summary.rejectedTransactions}
+                            tone="danger"
+                        />
                     </div>
 
-                    <div className="dashboard-volume-grid">
-                        {volumeCards.map(card => (
-                            <div
-                                key={card.currency}
-                                className="dashboard-metric-card"
-                            >
-                                <div
-                                    className={`metric-icon ${card.tone}`}
-                                >
-                                    <span className="material-symbols-rounded">
-                                        {card.icon}
-                                    </span>
-                                </div>
+                    <div className="finops-dashboard-panels">
+                        <section className="finops-panel finops-volume-panel">
+                            <h2>Completed Transaction Volume</h2>
 
-                                <div className="metric-copy">
-                                    <h2>
-                                        {formatMoney(
-                                            card.amountMinor,
-                                            card.currency
-                                        )}
-                                    </h2>
-                                    <p>{card.label}</p>
-                                </div>
+                            <div className="finops-volume-list">
+                                <VolumeSection
+                                    currency="CAD"
+                                    amountMinor={cadVolume}
+                                    percentage={cadPercentage}
+                                />
+
+                                <VolumeSection
+                                    currency="USD"
+                                    amountMinor={usdVolume}
+                                    percentage={usdPercentage}
+                                />
                             </div>
-                        ))}
-                    </div>
+                        </section>
 
-                    <div className="dashboard-panels">
-                        <div className="dashboard-panel">
-                            <div className="dashboard-panel-header">
-                                <h2>Transactions by Status</h2>
-                            </div>
-
-                            <div className="status-section">
-                                <div className="status-donut-wrap">
-                                    <div
-                                        className="status-donut"
-                                        style={donutStyle}
-                                    >
-                                        <div className="status-donut-inner">
-                                            <strong>
-                                                {summary.totalTransactions}
-                                            </strong>
-                                            <span>Total</span>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className="status-legend">
-                                    {statusLegend.map(item => (
-                                        <div
-                                            key={item.label}
-                                            className="status-legend-item"
-                                        >
-                                            <span
-                                                className={`legend-dot ${item.tone}`}
-                                            />
-                                            <span className="legend-value">
-                                                {item.value}
-                                            </span>
-                                            <span className="legend-label">
-                                                {item.label}
-                                            </span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="dashboard-panel">
-                            <div className="dashboard-panel-header">
-                                <h2>Recent Transactions</h2>
+                        <section className="finops-panel finops-activity-panel">
+                            <div className="finops-panel-heading">
+                                <h2>Recent Processing Activity</h2>
 
                                 <Link
                                     href={ROUTES.transactions}
-                                    className="view-all-link"
+                                    className="finops-view-all"
                                 >
-                                    View all
+                                    View All
                                 </Link>
                             </div>
 
-                            <TransactionTable
-                                transactions={summary.recentTransactions}
-                                dateField="createdAt"
+                            <ActivityTable
+                                transactions={
+                                    summary.recentProcessingActivity
+                                }
                             />
-                        </div>
-                    </div>
-
-                    <div className="dashboard-panel dashboard-activity-panel">
-                        <div className="dashboard-panel-header">
-                            <h2>Recent Processing Activity</h2>
-
-                            <Link
-                                href={ROUTES.transactions}
-                                className="view-all-link"
-                            >
-                                View all
-                            </Link>
-                        </div>
-
-                        <TransactionTable
-                            transactions={summary.recentProcessingActivity}
-                            dateField="updatedAt"
-                        />
+                        </section>
                     </div>
                 </>
             )}

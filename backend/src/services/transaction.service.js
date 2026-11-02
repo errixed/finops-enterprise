@@ -47,6 +47,7 @@ export async function getAllTransactions({
     search = "",
     sourceAccountId = "",
     status = "",
+    currency = "",
     dateFrom = "",
     dateTo = "",
     page = 1,
@@ -68,13 +69,18 @@ export async function getAllTransactions({
     if (
         typeof search !== "string" ||
         typeof sourceAccountId !== "string" ||
-        typeof status !== "string"
+        typeof status !== "string" ||
+        typeof currency !== "string"
     ) {
         fail("Invalid transaction filters", 400);
     }
 
     if (status && !STATUSES.includes(status)) {
         fail("Unsupported transaction status", 400, "status");
+    }
+
+    if (currency && !ENUMS.CURRENCIES.includes(currency)) {
+        fail("Unsupported currency filter", 400, "currency");
     }
 
     const from = dateFrom
@@ -97,6 +103,7 @@ export async function getAllTransactions({
         search,
         sourceAccountId,
         status,
+        currency,
         dateFrom: from,
         dateTo: to,
         page: currentPage,

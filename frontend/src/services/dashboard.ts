@@ -18,6 +18,7 @@ export interface RecentTransaction {
 export interface DashboardSummary {
     totalClients: number;
     activeClients: number;
+    totalAccounts: number;
     activeAccounts: number;
     totalTransactions: number;
 
@@ -40,6 +41,14 @@ export interface DashboardSummary {
 
     recentTransactions: RecentTransaction[];
     recentProcessingActivity: RecentTransaction[];
+
+
+    growthStatistics: {
+        newClientsThisMonth: number;
+        newAccountsThisMonth: number;
+        completedTransactionsThisWeek: number;
+    };
+
 }
 
 export async function getDashboardSummary(

@@ -36,6 +36,7 @@ export async function searchClients({
     search = "",
     status = "",
     industry = "",
+    country = "",
     page = 1,
     pageSize = 10
 } = {}) {
@@ -45,8 +46,18 @@ export async function searchClients({
         const query = escapeRegex(search.trim());
 
         filter.$or = [
-            { companyName: { $regex: query, $options: "i" } },
-            { registrationNumber: { $regex: query, $options: "i" } }
+            {
+                companyName: {
+                    $regex: query,
+                    $options: "i"
+                }
+            },
+            {
+                registrationNumber: {
+                    $regex: query,
+                    $options: "i"
+                }
+            }
         ];
     }
 
@@ -58,7 +69,11 @@ export async function searchClients({
         filter.industry = industry;
     }
 
-    return findPage({
+    if (country) {
+        filter.country = country;
+    }
+
+    const result = await findPage({
         collection: clients(),
         filter,
         sort: { _id: 1 },
@@ -66,6 +81,45 @@ export async function searchClients({
         pageSize,
         serialize: serializeClientDocument
     });
+
+    const clientIds = result.data.map(
+        client => client.clientId
+    );
+
+    if (clientIds.length === 0) {
+        return result;
+    }
+
+    const accountCounts = await getCollection("accounts")
+        .aggregate([
+            {
+                $match: {
+                    clientId: { $in: clientIds }
+                }
+            },
+            {
+                $group: {
+                    _id: "$clientId",
+                    count: { $sum: 1 }
+                }
+            }
+        ])
+        .toArray();
+
+    const countsByClient = new Map(
+        accountCounts.map(item => [
+            item._id,
+            item.count
+        ])
+    );
+
+    return {
+        ...result,
+        data: result.data.map(client => ({
+            ...client,
+            accountCount: countsByClient.get(client.clientId) ?? 0
+        }))
+    };
 }
 
 export async function countClients(filter = {}) {

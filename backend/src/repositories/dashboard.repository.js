@@ -10,6 +10,7 @@ export async function getDashboardStatistics() {
     const [
         totalClients,
         activeClients,
+        totalAccounts,
         activeAccounts,
         totalTransactions,
         statusGroups,
@@ -17,6 +18,7 @@ export async function getDashboardStatistics() {
     ] = await Promise.all([
         clients.countDocuments(),
         clients.countDocuments({ status: "Active" }),
+        accounts.countDocuments(),
         accounts.countDocuments({ status: "Active" }),
         transactions.countDocuments(),
         transactions.aggregate([
@@ -47,6 +49,7 @@ export async function getDashboardStatistics() {
     return {
         totalClients,
         activeClients,
+        totalAccounts,
         activeAccounts,
         totalTransactions,
         statusGroups,
@@ -103,4 +106,62 @@ export async function findDashboardAccounts(accountIds) {
             }
         )
         .toArray();
+}
+
+export async function getDashboardGrowthStatistics() {
+    const db = getDatabase();
+
+    const now = new Date();
+
+    const monthStart = new Date(Date.UTC(
+        now.getUTCFullYear(),
+        now.getUTCMonth(),
+        1
+    ));
+
+    const weekStart = new Date(Date.UTC(
+        now.getUTCFullYear(),
+        now.getUTCMonth(),
+        now.getUTCDate()
+    ));
+
+    const daysSinceMonday = (weekStart.getUTCDay() + 6) % 7;
+
+    weekStart.setUTCDate(
+        weekStart.getUTCDate() - daysSinceMonday
+    );
+
+    const [
+        newClientsThisMonth,
+        newAccountsThisMonth,
+        completedTransactionsThisWeek
+    ] = await Promise.all([
+        db.collection("clients").countDocuments({
+            createdAt: {
+                $gte: monthStart,
+                $lte: now
+            }
+        }),
+
+        db.collection("accounts").countDocuments({
+            createdAt: {
+                $gte: monthStart,
+                $lte: now
+            }
+        }),
+
+        db.collection("transactions").countDocuments({
+            status: "Completed",
+            processedAt: {
+                $gte: weekStart,
+                $lte: now
+            }
+        })
+    ]);
+
+    return {
+        newClientsThisMonth,
+        newAccountsThisMonth,
+        completedTransactionsThisWeek
+    };
 }

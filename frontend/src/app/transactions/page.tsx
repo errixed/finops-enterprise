@@ -1,56 +1,105 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
     TransactionFilters,
     TransactionListResult,
     getTransactions
 } from "@/services/transactions";
-import {
-    Account,
-    getAccounts
-} from "@/services/accounts";
-import { ROUTES, PAGINATION, ENUMS } from "../../../config";
+import { ENUMS, ROUTES } from "../../../config";
+
+const PAGE_SIZE = 5;
+
+function getVisiblePages(
+    currentPage: number,
+    totalPages: number
+): (number | "ellipsis")[] {
+    if (totalPages <= 6) {
+        return Array.from(
+            { length: totalPages },
+            (_, index) => index + 1
+        );
+    }
+
+    if (currentPage <= 4) {
+        return [1, 2, 3, 4, 5, "ellipsis", totalPages];
+    }
+
+    if (currentPage >= totalPages - 3) {
+        return [
+            1,
+            "ellipsis",
+            ...Array.from(
+                { length: 5 },
+                (_, index) => totalPages - 4 + index
+            )
+        ];
+    }
+
+    return [
+        1,
+        "ellipsis",
+        currentPage - 1,
+        currentPage,
+        currentPage + 1,
+        "ellipsis",
+        totalPages
+    ];
+}
+
+function formatDate(value: string) {
+    const date = new Date(value);
+
+    if (Number.isNaN(date.getTime())) {
+        return "Not available";
+    }
+
+    return date.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+        timeZone: "UTC"
+    });
+}
+
+function formatAmount(amountMinor: number) {
+    return (amountMinor / 100).toLocaleString("en-CA", {
+        style: "currency",
+        currency: "CAD"
+    });
+}
 
 export default function TransactionsPage() {
-    const [result, setResult] = useState<TransactionListResult | null>(null);
-    const [accounts, setAccounts] = useState<Account[]>([]);
+    const [result, setResult] =
+        useState<TransactionListResult | null>(null);
+
     const [filters, setFilters] = useState<TransactionFilters>({
         search: "",
-        sourceAccountId: "",
         status: "",
+        currency: "",
         dateFrom: "",
         dateTo: "",
-        page: PAGINATION.DEFAULT_PAGE,
-        pageSize: PAGINATION.DEFAULT_PAGE_SIZE
+        page: 1,
+        pageSize: PAGE_SIZE
     });
 
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
-    const [accountsError, setAccountsError] = useState("");
+
+    const [searchInput, setSearchInput] = useState("");
 
     useEffect(() => {
-        let active = true;
+        const timeout = setTimeout(() => {
+            setFilters(previous => ({
+                ...previous,
+                search: searchInput,
+                page: 1
+            }));
+        }, 300);
 
-        getAccounts()
-            .then(data => {
-                if (active) setAccounts(data);
-            })
-            .catch(err => {
-                if (active) {
-                    setAccountsError(
-                        err instanceof Error
-                            ? err.message
-                            : "Unable to load accounts"
-                    );
-                }
-            });
-
-        return () => {
-            active = false;
-        };
-    }, []);
+        return () => clearTimeout(timeout);
+    }, [searchInput]);
 
     useEffect(() => {
         let active = true;
@@ -62,7 +111,9 @@ export default function TransactionsPage() {
             try {
                 const data = await getTransactions(filters);
 
-                if (active) setResult(data);
+                if (active) {
+                    setResult(data);
+                }
             } catch (err) {
                 if (active) {
                     setResult(null);
@@ -73,7 +124,9 @@ export default function TransactionsPage() {
                     );
                 }
             } finally {
-                if (active) setLoading(false);
+                if (active) {
+                    setLoading(false);
+                }
             }
         }
 
@@ -85,13 +138,13 @@ export default function TransactionsPage() {
     }, [filters]);
 
     function changeFilter(
-        field: keyof TransactionFilters,
+        field: "status" | "currency" | "dateFrom" | "dateTo",
         value: string
     ) {
         setFilters(previous => ({
             ...previous,
             [field]: value,
-            page: PAGINATION.DEFAULT_PAGE
+            page: 1
         }));
     }
 
@@ -102,182 +155,183 @@ export default function TransactionsPage() {
         }));
     }
 
-    function changePageSize(pageSize: number) {
-        setFilters(previous => ({
-            ...previous,
-            pageSize,
-            page: PAGINATION.DEFAULT_PAGE
-        }));
-    }
-
     function clearFilters() {
-        setFilters(previous => ({
-            ...previous,
+        setSearchInput("");
+
+        setFilters({
             search: "",
-            sourceAccountId: "",
             status: "",
+            currency: "",
             dateFrom: "",
             dateTo: "",
-            page: PAGINATION.DEFAULT_PAGE
-        }));
-    }
-
-    function formatAmount(amountMinor: number) {
-        return (amountMinor / 100).toLocaleString("en-CA", {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2
-        });
-    }
-
-    function formatDate(value: string) {
-        return new Date(value).toLocaleDateString("en-CA", {
-            month: "short",
-            day: "numeric",
-            year: "numeric"
+            page: 1,
+            pageSize: PAGE_SIZE
         });
     }
 
     const total = result?.pagination.total ?? 0;
     const totalPages = result?.pagination.totalPages ?? 0;
     const page = filters.page ?? 1;
-    const pageSize = filters.pageSize ?? PAGINATION.DEFAULT_PAGE_SIZE;
-    const start = total === 0 ? 0 : (page - 1) * pageSize + 1;
-    const end = Math.min(page * pageSize, total);
 
-    const pages = Array.from(
-        { length: totalPages },
-        (_, index) => index + 1
+    const start = total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
+    const end = Math.min(page * PAGE_SIZE, total);
+
+    const visiblePages = useMemo(
+        () => getVisiblePages(page, totalPages),
+        [page, totalPages]
     );
 
     const hasFilters = Boolean(
-        filters.search ||
-        filters.sourceAccountId ||
+        searchInput ||
         filters.status ||
+        filters.currency ||
         filters.dateFrom ||
         filters.dateTo
     );
 
+    const invalidDateRange = Boolean(
+        filters.dateFrom &&
+        filters.dateTo &&
+        filters.dateFrom > filters.dateTo
+    );
+
     return (
-        <section className="transactions-directory">
-            <div className="transactions-page-header">
-                <div>
-                    <h1>Transactions</h1>
-                    <p>
-                        View, initiate and manage financial transactions
-                    </p>
-                </div>
+        <section className="transaction-directory">
+            <div className="transaction-directory-header">
+                <h1>Financial Transactions</h1>
 
                 <Link
                     href={ROUTES.transactionCreate}
-                    className="client-details-edit-button"
+                    className="transaction-directory-create"
                 >
                     <span className="material-symbols-rounded">
                         add
                     </span>
-                    New Transaction
+                    Create Transfer
                 </Link>
             </div>
 
-            <div className="transactions-filter-bar">
-                <div className="clients-search">
+            <div className="transaction-directory-filters">
+                <div className="transaction-directory-search">
                     <span className="material-symbols-rounded">
                         search
                     </span>
+
                     <input
                         type="search"
-                        placeholder="Search by reference number..."
                         aria-label="Search transactions"
-                        value={filters.search ?? ""}
+                        placeholder="Search by reference number, account number..."
+                        value={searchInput}
                         onChange={event =>
-                            changeFilter("search", event.target.value)
+                            setSearchInput(event.target.value)
                         }
                     />
                 </div>
 
-                <select
-                    className="clients-filter-select"
-                    aria-label="Source account"
-                    value={filters.sourceAccountId ?? ""}
-                    onChange={event =>
-                        changeFilter("sourceAccountId", event.target.value)
-                    }
-                >
-                    <option value="">All Source Accounts</option>
-                    {accounts.map(account => (
-                        <option
-                            key={account.accountId}
-                            value={account.accountId}
-                        >
-                            {account.accountNumber}
-                        </option>
-                    ))}
-                </select>
+                <div className="transaction-directory-field">
+                    <label htmlFor="transaction-status">
+                        Status
+                    </label>
 
-                <select
-                    className="clients-filter-select"
-                    aria-label="Transaction status"
-                    value={filters.status ?? ""}
-                    onChange={event =>
-                        changeFilter("status", event.target.value)
-                    }
-                >
-                    <option value="">All Statuses</option>
-                    {ENUMS.TRANSACTION_STATUSES.map(status => (
-                        <option key={status} value={status}>
-                            {status}
-                        </option>
-                    ))}
-                </select>
+                    <select
+                        id="transaction-status"
+                        value={filters.status ?? ""}
+                        onChange={event =>
+                            changeFilter("status", event.target.value)
+                        }
+                    >
+                        <option value="">All Statuses</option>
 
-                <label className="transactions-date-field">
-                    <span>From</span>
+                        {ENUMS.TRANSACTION_STATUSES.map(status => (
+                            <option key={status} value={status}>
+                                {status}
+                            </option>
+                        ))}
+                    </select>
+                </div>
+
+                <div className="transaction-directory-field">
+                    <label htmlFor="transaction-currency">
+                        Currency
+                    </label>
+
+                    <select
+                        id="transaction-currency"
+                        value={filters.currency ?? ""}
+                        onChange={event =>
+                            changeFilter("currency", event.target.value)
+                        }
+                    >
+                        <option value="">All Currencies</option>
+
+                        {ENUMS.CURRENCIES.map(currency => (
+                            <option key={currency} value={currency}>
+                                {currency}
+                            </option>
+                        ))}
+                    </select>
+                </div>
+
+                <div className="transaction-directory-field transaction-directory-date">
+                    <label htmlFor="transaction-from-date">
+                        From Date
+                    </label>
+
                     <input
+                        id="transaction-from-date"
                         type="date"
                         value={filters.dateFrom ?? ""}
+                        max={filters.dateTo || undefined}
                         onChange={event =>
                             changeFilter("dateFrom", event.target.value)
                         }
                     />
-                </label>
+                </div>
 
-                <label className="transactions-date-field">
-                    <span>To</span>
+                <div className="transaction-directory-field transaction-directory-date">
+                    <label htmlFor="transaction-to-date">
+                        To Date
+                    </label>
+
                     <input
+                        id="transaction-to-date"
                         type="date"
                         value={filters.dateTo ?? ""}
+                        min={filters.dateFrom || undefined}
                         onChange={event =>
                             changeFilter("dateTo", event.target.value)
                         }
                     />
-                </label>
+                </div>
+            </div>
 
+            {hasFilters && (
                 <button
                     type="button"
-                    className="clients-clear-button"
-                    disabled={!hasFilters}
+                    className="transaction-directory-clear"
                     onClick={clearFilters}
                 >
                     <span className="material-symbols-rounded">
                         restart_alt
                     </span>
-                    Clear
+                    Clear Filters
                 </button>
-            </div>
+            )}
 
-            {accountsError && (
-                <p role="alert" className="transactions-filter-error">
-                    {accountsError}
+            {invalidDateRange && (
+                <p className="transaction-directory-error" role="alert">
+                    From Date cannot be later than To Date.
                 </p>
             )}
 
-            <div className="transactions-table-scroll">
-                <table className="transactions-data-table">
+            <div className="transaction-directory-table-scroll">
+                <table className="transaction-directory-table">
                     <thead>
                         <tr>
-                            <th>Reference #</th>
+                            <th>Reference Number</th>
                             <th>Date</th>
-                            <th>Source Account</th>
-                            <th>Destination Account</th>
+                            <th>From Account</th>
+                            <th>To Account</th>
                             <th>Amount</th>
                             <th>Currency</th>
                             <th>Status</th>
@@ -288,60 +342,101 @@ export default function TransactionsPage() {
                     <tbody>
                         {loading ? (
                             <tr>
-                                <td colSpan={8} className="clients-message">
+                                <td
+                                    colSpan={8}
+                                    className="transaction-directory-message"
+                                >
                                     Loading transactions...
                                 </td>
                             </tr>
-                        ) : error ? (
+                        ) : error || invalidDateRange ? (
                             <tr>
                                 <td
                                     colSpan={8}
-                                    className="clients-message clients-error"
+                                    className="transaction-directory-message transaction-directory-error"
+                                    role="alert"
                                 >
-                                    {error}
+                                    {invalidDateRange
+                                        ? "Invalid date range"
+                                        : error}
                                 </td>
                             </tr>
-                        ) : result?.data.length === 0 ? (
+                        ) : !result?.data.length ? (
                             <tr>
-                                <td colSpan={8} className="clients-message">
-                                    No transactions match your search or filters.
+                                <td
+                                    colSpan={8}
+                                    className="transaction-directory-message"
+                                >
+                                    No transactions found.
                                 </td>
                             </tr>
                         ) : (
-                            result?.data.map(transaction => (
+                            result.data.map(transaction => (
                                 <tr key={transaction.transactionId}>
                                     <td>
                                         <Link
-                                            href={ROUTES.transactionDetails(transaction.transactionId)}
-                                            className="accounts-number-link"
+                                            href={ROUTES.transactionDetails(
+                                                transaction.transactionId
+                                            )}
+                                            className="transaction-directory-reference"
                                         >
                                             {transaction.referenceNumber}
                                         </Link>
                                     </td>
-                                    <td>{formatDate(transaction.createdAt)}</td>
-                                    <td>{transaction.sourceAccountNumber}</td>
-                                    <td>{transaction.destinationAccountNumber}</td>
-                                    <td className="transactions-amount">
+
+                                    <td>
+                                        {formatDate(transaction.createdAt)}
+                                    </td>
+
+                                    <td>
+                                        {transaction.sourceAccountNumber}
+                                    </td>
+
+                                    <td>
+                                        {transaction.destinationAccountNumber}
+                                    </td>
+
+                                    <td className="transaction-directory-amount">
                                         {formatAmount(transaction.amountMinor)}
                                     </td>
+
                                     <td>{transaction.currency}</td>
+
                                     <td>
                                         <span
-                                            className={`transaction-history-status ${transaction.status.toLowerCase()}`}
+                                            className={`transaction-directory-status ${transaction.status.toLowerCase()}`}
                                         >
                                             {transaction.status}
                                         </span>
                                     </td>
+
                                     <td>
-                                        <Link
-                                            href={ROUTES.transactionDetails(transaction.transactionId)}
-                                            className="clients-view-button"
-                                        >
-                                            <span className="material-symbols-rounded">
-                                                visibility
-                                            </span>
-                                            View
-                                        </Link>
+                                        <div className="transaction-directory-actions">
+                                            <Link
+                                                href={ROUTES.transactionDetails(
+                                                    transaction.transactionId
+                                                )}
+                                                className="transaction-directory-icon"
+                                                title="View Transaction"
+                                                aria-label={`View transaction ${transaction.referenceNumber}`}
+                                            >
+                                                <span className="material-symbols-rounded">
+                                                    visibility
+                                                </span>
+                                            </Link>
+
+                                            <button
+                                                type="button"
+                                                className="transaction-directory-icon"
+                                                title="Transaction editing is not available"
+                                                aria-label={`Editing transaction ${transaction.referenceNumber} is not available`}
+                                                disabled
+                                            >
+                                                <span className="material-symbols-rounded">
+                                                    edit
+                                                </span>
+                                            </button>
+                                        </div>
                                     </td>
                                 </tr>
                             ))
@@ -350,15 +445,18 @@ export default function TransactionsPage() {
                 </table>
             </div>
 
-            <div className="transactions-table-footer">
+            <div className="transaction-directory-footer">
                 <p>
-                    Showing {start} to {end} of {total} transactions
+                    Showing {start}-{end} of {total} transactions
                 </p>
 
-                <div className="clients-pagination">
+                <nav
+                    className="transaction-directory-pagination"
+                    aria-label="Transaction pagination"
+                >
                     <button
                         type="button"
-                        className="clients-page-button"
+                        className="transaction-directory-page-button"
                         disabled={page <= 1 || loading}
                         onClick={() => changePage(page - 1)}
                         aria-label="Previous page"
@@ -368,24 +466,35 @@ export default function TransactionsPage() {
                         </span>
                     </button>
 
-                    <div className="clients-page-numbers">
-                        {pages.map(number => (
+                    {visiblePages.map((number, index) =>
+                        number === "ellipsis" ? (
+                            <span
+                                key={`ellipsis-${index}`}
+                                className="transaction-directory-ellipsis"
+                            >
+                                ...
+                            </span>
+                        ) : (
                             <button
                                 key={number}
                                 type="button"
-                                className={`clients-page-button ${page === number ? "selected" : ""
-                                    }`}
+                                className={`transaction-directory-page-button ${
+                                    page === number ? "selected" : ""
+                                }`}
+                                aria-current={
+                                    page === number ? "page" : undefined
+                                }
                                 disabled={loading}
                                 onClick={() => changePage(number)}
                             >
                                 {number}
                             </button>
-                        ))}
-                    </div>
+                        )
+                    )}
 
                     <button
                         type="button"
-                        className="clients-page-button"
+                        className="transaction-directory-page-button"
                         disabled={page >= totalPages || loading}
                         onClick={() => changePage(page + 1)}
                         aria-label="Next page"
@@ -394,22 +503,7 @@ export default function TransactionsPage() {
                             chevron_right
                         </span>
                     </button>
-
-                    <select
-                        className="clients-page-size"
-                        aria-label="Transactions per page"
-                        value={pageSize}
-                        onChange={event =>
-                            changePageSize(Number(event.target.value))
-                        }
-                    >
-                        {PAGINATION.PAGE_SIZE_OPTIONS.map(size => (
-                            <option key={size} value={size}>
-                                {size} / page
-                            </option>
-                        ))}
-                    </select>
-                </div>
+                </nav>
             </div>
         </section>
     );
