@@ -11,22 +11,44 @@ export interface RecentTransaction {
     currency: string;
     status: string;
     createdAt: string;
+    updatedAt: string;
+    processedAt: string | null;
 }
 
 export interface DashboardSummary {
     totalClients: number;
     activeClients: number;
+    totalAccounts: number;
     activeAccounts: number;
     totalTransactions: number;
+
     pendingTransactions: number;
+    processingTransactions: number;
     completedTransactions: number;
     rejectedTransactions: number;
+
     transactionStatuses: {
         Pending: number;
+        Processing: number;
         Completed: number;
         Rejected: number;
     };
+
+    completedVolumes: {
+        CAD: number;
+        USD: number;
+    };
+
     recentTransactions: RecentTransaction[];
+    recentProcessingActivity: RecentTransaction[];
+
+
+    growthStatistics: {
+        newClientsThisMonth: number;
+        newAccountsThisMonth: number;
+        completedTransactionsThisWeek: number;
+    };
+
 }
 
 export async function getDashboardSummary(

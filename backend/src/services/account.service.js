@@ -1,10 +1,14 @@
 import {
-    findAllAccounts,
     findAccountById,
-    insertAccount
+    insertAccount,
+    filterAccounts
 } from "../repositories/account.repository.js";
-import { findClientById, findAllClients } from "../repositories/client.repository.js";
-import { findAllTransactions } from "../repositories/transaction.repository.js";
+import {
+    findClientById
+} from "../repositories/client.repository.js";
+import {
+    findTransactionsByAccountId
+} from "../repositories/transaction.repository.js";
 import { validateMinorUnits } from "../utils/money.js";
 import { ENUMS } from "../../config.js";
 
@@ -94,26 +98,32 @@ export async function getAllAccounts({
         fail("Invalid account filter");
     }
 
-    const [accounts, clients] = await Promise.all([
-        findAllAccounts(),
-        findAllClients()
-    ]);
+    const accounts = await filterAccounts({
+        clientId,
+        accountType,
+        currency,
+        status
+    });
 
-    const clientMap = new Map(
-        clients.map(client => [client.clientId, client])
+    const clientIds = [
+        ...new Set(accounts.map(account => account.clientId))
+    ];
+
+    const clientEntries = await Promise.all(
+        clientIds.map(async id => [
+            id,
+            await findClientById(id)
+        ])
     );
 
-    return accounts
-        .filter(account =>
-            (!clientId || account.clientId === clientId) &&
-            (!accountType || account.accountType === accountType) &&
-            (!currency || account.currency === currency) &&
-            (!status || account.status === status)
-        )
-        .map(account => ({
-            ...account,
-            companyName: clientMap.get(account.clientId)?.companyName ?? "Unknown client"
-        }));
+    const clientMap = new Map(clientEntries);
+
+    return accounts.map(account => ({
+        ...account,
+        companyName:
+            clientMap.get(account.clientId)?.companyName ??
+            "Unknown client"
+    }));
 }
 
 export async function getAccountById(accountId) {
@@ -125,17 +135,16 @@ export async function getAccountById(accountId) {
 
     const [client, transactions] = await Promise.all([
         findClientById(account.clientId),
-        findAllTransactions()
+        findTransactionsByAccountId(accountId)
     ]);
 
     return {
         ...account,
-        companyName: client?.companyName ?? "Unknown client",
-        clientStatus: client?.status ?? "Unknown",
-        transactions: transactions.filter(transaction =>
-            transaction.sourceAccountId === accountId ||
-            transaction.destinationAccountId === accountId
-        )
+        companyName:
+            client?.companyName ?? "Unknown client",
+        clientStatus:
+            client?.status ?? "Unknown",
+        transactions
     };
 }
 

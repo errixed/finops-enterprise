@@ -11,6 +11,7 @@ export interface Client {
     status: string;
     createdAt: string;
     updatedAt: string;
+    accountCount?: number;
 }
 
 export interface Account {
@@ -37,8 +38,9 @@ export interface ClientInput {
 
 export interface ClientFilters {
     search?: string;
-    status?: string;
     industry?: string;
+    country?: string;
+    status?: string;
     page?: number;
     pageSize?: number;
 }
@@ -78,7 +80,9 @@ async function request<T>(
     const data = await response.json();
 
     if (!response.ok) {
-        throw new Error(data.error || "Request failed");
+        throw new Error(
+            data.error?.message ?? "Request failed"
+        );
     }
 
     return data as T;

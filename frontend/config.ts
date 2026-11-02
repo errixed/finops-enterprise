@@ -1,6 +1,5 @@
 export const API_BASE_URL =
-    process.env.NEXT_PUBLIC_API_BASE_URL ||
-    "http://localhost:3000";
+    process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
 
 export const API_ROUTES = Object.freeze({
     health: "/api/v1/health",
@@ -20,6 +19,7 @@ export const ROUTES = Object.freeze({
     accountRegistration: "/accounts/new",
     accountDetails: (id: string) => `/accounts/${id}`,
     transactions: "/transactions",
+    transactionCreate: "/transactions/new",
     transactionDetails: (id: string) => `/transactions/${id}`
 });
 
@@ -34,5 +34,5 @@ export const ENUMS = Object.freeze({
     ACCOUNT_TYPES: ["Operating", "Savings", "Investment"],
     ACCOUNT_STATUSES: ["Active", "Frozen", "Closed"],
     CURRENCIES: ["CAD", "USD"],
-    TRANSACTION_STATUSES: ["Pending", "Completed", "Rejected"]
+    TRANSACTION_STATUSES: ["Pending", "Processing", "Completed", "Rejected"]
 });

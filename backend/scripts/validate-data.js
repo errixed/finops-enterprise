@@ -3,7 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const dataDirectory = path.resolve(__dirname, "../data");
+const dataDirectory = path.resolve(__dirname, "../data/legacy");
 
 function validate(condition, message) {
     if (!condition) {

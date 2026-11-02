@@ -19,18 +19,3 @@ export function parsePagination(page = 1, pageSize = 10) {
         pageSize: currentPageSize
     };
 }
-
-export function paginate(items, page = 1, pageSize = 10) {
-    const pagination = parsePagination(page, pageSize);
-    const start = (pagination.page - 1) * pagination.pageSize;
-
-    return {
-        data: items.slice(start, start + pagination.pageSize),
-        pagination: {
-            page: pagination.page,
-            pageSize: pagination.pageSize,
-            total: items.length,
-            totalPages: Math.ceil(items.length / pagination.pageSize)
-        }
-    };
-}

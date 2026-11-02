@@ -1,12 +1,13 @@
 import { randomUUID } from "node:crypto";
 import {
-    findAllClients,
     findClientById,
     insertClient,
-    updateClient
+    updateClient,
+    searchClients
 } from "../repositories/client.repository.js";
-import { findAllAccounts } from "../repositories/account.repository.js";
-import { paginate } from "../utils/pagination.js";
+import {
+    findAccountsByClientId
+} from "../repositories/account.repository.js";
 import { ENUMS } from "../../config.js";
 
 const INDUSTRIES = ENUMS.CLIENT_INDUSTRIES;
@@ -162,6 +163,7 @@ export async function getAllClients({
     search = "",
     status = "",
     industry = "",
+    country = "",
     page = 1,
     pageSize = 10
 } = {}) {
@@ -173,27 +175,22 @@ export async function getAllClients({
         fail("Unsupported industry filter", 400, "industry");
     }
 
+    if (country && !COUNTRIES.includes(country)) {
+        fail("Unsupported country filter", 400, "country");
+    }
+
     if (typeof search !== "string") {
         fail("Invalid search parameter", 400, "search");
     }
 
-    const clients = await findAllClients();
-    const query = search.trim().toLowerCase();
-
-    const filtered = clients.filter(client => {
-        const matchesSearch =
-            !query ||
-            client.companyName.toLowerCase().includes(query) ||
-            client.registrationNumber.toLowerCase().includes(query);
-
-        return (
-            matchesSearch &&
-            (!status || client.status === status) &&
-            (!industry || client.industry === industry)
-        );
+    return searchClients({
+        search,
+        status,
+        industry,
+        country,
+        page,
+        pageSize
     });
-
-    return paginate(filtered, page, pageSize);
 }
 
 export async function getClientById(clientId) {
@@ -203,14 +200,22 @@ export async function getClientById(clientId) {
         fail("Client not found", 404);
     }
 
-    const accounts = await findAllAccounts();
+    const accounts = await findAccountsByClientId(clientId);
 
     return {
         ...client,
-        accounts: accounts.filter(
-            account => account.clientId === clientId
-        )
+        accounts
     };
+}
+
+export async function getClientAccountsById(clientId) {
+    const client = await findClientById(clientId);
+
+    if (!client) {
+        fail("Client not found", 404);
+    }
+
+    return findAccountsByClientId(clientId);
 }
 
 export async function createClient(input) {

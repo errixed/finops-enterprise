@@ -1,6 +1,7 @@
 import {
     getAllClients,
     getClientById,
+    getClientAccountsById,
     createClient,
     modifyClient,
     CLIENT_OPTIONS
@@ -19,6 +20,18 @@ export async function getClient(req, res, next) {
     try {
         const client = await getClientById(req.params.id);
         res.status(200).json(client);
+    } catch (error) {
+        next(error);
+    }
+}
+
+export async function getClientAccounts(req, res, next) {
+    try {
+        const accounts = await getClientAccountsById(
+            req.params.id
+        );
+
+        res.status(200).json(accounts);
     } catch (error) {
         next(error);
     }

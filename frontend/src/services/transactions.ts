@@ -29,12 +29,20 @@ export interface TransactionDetails extends Omit<
 > {
     sourceAccount: RelatedAccount;
     destinationAccount: RelatedAccount;
+
+    updatedAt: string;
+    processedAt: string | null;
+
+    isLegacy: boolean;
+    rejectionCode: string | null;
+    rejectionReason: string | null;
 }
 
 export interface TransactionFilters {
     search?: string;
     sourceAccountId?: string;
     status?: string;
+    currency?: string;
     dateFrom?: string;
     dateTo?: string;
     page?: number;
@@ -63,7 +71,9 @@ async function request<T>(endpoint: string): Promise<T> {
     const data = await response.json();
 
     if (!response.ok) {
-        throw new Error(data.error || "Request failed");
+        throw new Error(
+            data.error?.message ?? "Request failed"
+        );
     }
 
     return data as T;
@@ -89,4 +99,78 @@ export function getTransaction(transactionId: string) {
     return request<TransactionDetails>(
         `${API_ROUTES.transactions}/${encodeURIComponent(transactionId)}`
     );
+}
+
+export interface TransactionInput {
+    sourceAccountId: string;
+    destinationAccountId: string;
+    amountMinor: number;
+    currency: string;
+    description: string;
+}
+
+export interface InitiatedTransaction {
+    transactionId: string;
+    referenceNumber: string;
+    sourceAccountId: string;
+    destinationAccountId: string;
+    amountMinor: number;
+    currency: string;
+    transactionType: string;
+    status: string;
+    description: string;
+    createdAt: string;
+    processedAt: string | null;
+}
+
+export async function initiateTransaction(
+    input: TransactionInput,
+    idempotencyKey: string
+): Promise<InitiatedTransaction> {
+    const response = await fetch(
+        `${API_BASE_URL}${API_ROUTES.transactions}`,
+        {
+            method: "POST",
+            cache: "no-store",
+            headers: {
+                "Content-Type": "application/json",
+                "Idempotency-Key": idempotencyKey
+            },
+            body: JSON.stringify(input)
+        }
+    );
+
+    const result = await response.json();
+
+    if (!response.ok) {
+        throw new Error(
+            result.error?.message ??
+            "Unable to initiate transaction"
+        );
+    }
+
+    return result.data as InitiatedTransaction;
+}
+
+export async function processTransaction(
+    transactionId: string
+): Promise<TransactionDetails> {
+    const response = await fetch(
+        `${API_BASE_URL}${API_ROUTES.transactions}/${encodeURIComponent(transactionId)}/process`,
+        {
+            method: "POST",
+            cache: "no-store"
+        }
+    );
+
+    const result = await response.json();
+
+    if (!response.ok) {
+        throw new Error(
+            result.error?.message ??
+            "Unable to process transaction"
+        );
+    }
+
+    return result.data as TransactionDetails;
 }
