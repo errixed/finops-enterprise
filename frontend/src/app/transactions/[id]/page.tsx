@@ -45,6 +45,21 @@ function formatDate(value?: string | null) {
     });
 }
 
+function isApprovalSatisfied(transaction: TransactionDetails): boolean {
+    if (transaction.approvalRequired === false) {
+        return transaction.approvalStatus === "NotRequired";
+    }
+
+    if (transaction.approvalRequired === true) {
+        return (
+            transaction.approvalStatus === "Approved" &&
+            Boolean(transaction.approvalWorkflowId)
+        );
+    }
+
+    return false;
+}
+
 function StatusBadge({ status }: { status: string }) {
     return (
         <span
@@ -237,12 +252,14 @@ export default function TransactionDetailsPage({ params }: Props) {
         }
     }
 
+
     async function handleProcessTransaction() {
         if (
             processingRef.current ||
             !transaction ||
             transaction.status !== "Pending" ||
-            transaction.isLegacy !== false
+            transaction.isLegacy !== false ||
+            !isApprovalSatisfied(transaction)
         ) {
             return;
         }
@@ -340,11 +357,20 @@ export default function TransactionDetailsPage({ params }: Props) {
     const isCompleted = transaction.status === "Completed";
     const isRejected = transaction.status === "Rejected";
 
+    const approvalSatisfied =
+        transaction.approvalRequired === false
+            ? transaction.approvalStatus === "NotRequired"
+            : transaction.approvalRequired === true &&
+            transaction.approvalStatus === "Approved";
+
+
     const canProcess =
         isPending &&
         transaction.isLegacy === false &&
+        isApprovalSatisfied(transaction) &&
         !processing &&
         !refreshing;
+
 
     return (
         <section className="transaction-profile-page">
@@ -509,6 +535,62 @@ export default function TransactionDetailsPage({ params }: Props) {
                             <StatusBadge status={transaction.status} />
                         </InformationRow>
 
+                        <InformationRow label="Risk Level">
+                            {transaction.riskLevel ? (
+                                <span
+                                    className={`risk-assessment-level ${transaction.riskLevel.toLowerCase()}`}
+                                >
+                                    {transaction.riskLevel}
+                                </span>
+                            ) : (
+                                "Not assessed"
+                            )}
+                        </InformationRow>
+
+                        <InformationRow label="Risk Score">
+                            {transaction.riskScore != null
+                                ? `${transaction.riskScore} / 100`
+                                : "Not assessed"}
+                        </InformationRow>
+
+                        <InformationRow label="Approval Required">
+                            {transaction.approvalRequired === undefined
+                                ? "Not available"
+                                : transaction.approvalRequired
+                                    ? "Yes"
+                                    : "No"}
+                        </InformationRow>
+
+                        <InformationRow label="Approval Status">
+                            {transaction.approvalStatus ?? "Not available"}
+                        </InformationRow>
+
+                        {transaction.riskAssessmentId && (
+                            <InformationRow label="Risk Assessment">
+                                <Link
+                                    href={ROUTES.riskAssessmentDetails(
+                                        transaction.riskAssessmentId
+                                    )}
+                                    className="risk-detail-link"
+                                >
+                                    View Risk Assessment
+                                </Link>
+                            </InformationRow>
+                        )}
+
+                        {transaction.approvalWorkflowId && (
+                            <InformationRow label="Approval Workflow">
+                                <Link
+                                    href={ROUTES.approvalDetails(
+                                        transaction.approvalWorkflowId
+                                    )}
+                                    className="risk-detail-link"
+                                >
+                                    View Approval Workflow
+                                </Link>
+                            </InformationRow>
+                        )}
+
                         <InformationRow label="Created At">
                             {formatDate(transaction.createdAt)}
                         </InformationRow>
@@ -537,7 +619,7 @@ export default function TransactionDetailsPage({ params }: Props) {
                                 account={transaction.sourceAccount}
                                 information={
                                     accountInformation[
-                                        transaction.sourceAccount.accountId
+                                    transaction.sourceAccount.accountId
                                     ]
                                 }
                             />
@@ -547,7 +629,7 @@ export default function TransactionDetailsPage({ params }: Props) {
                                 account={transaction.destinationAccount}
                                 information={
                                     accountInformation[
-                                        transaction.destinationAccount.accountId
+                                    transaction.destinationAccount.accountId
                                     ]
                                 }
                             />
@@ -568,11 +650,17 @@ export default function TransactionDetailsPage({ params }: Props) {
                                         schedule
                                     </span>
 
+
                                     <p>
-                                        This transaction is pending.
-                                        Click the button below to
-                                        validate and process the transfer.
+                                        {!isApprovalSatisfied(transaction)
+                                            ? transaction.approvalStatus === "Rejected"
+                                                ? "The approval workflow was rejected. This transaction cannot be processed."
+                                                : transaction.approvalStatus === "Escalated"
+                                                    ? "This transaction is awaiting escalation review."
+                                                    : "This transaction is awaiting the required approval before processing."
+                                            : "This transaction is approved for processing. Financial conditions will be validated before the transfer is completed."}
                                     </p>
+
                                 </div>
 
                                 <button

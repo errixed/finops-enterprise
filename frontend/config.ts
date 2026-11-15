@@ -6,21 +6,44 @@ export const API_ROUTES = Object.freeze({
     clients: "/api/v1/clients",
     accounts: "/api/v1/accounts",
     transactions: "/api/v1/transactions",
-    dashboard: "/api/v1/dashboard"
+    dashboard: "/api/v1/dashboard",
+    riskDashboard: "/api/v1/risk/dashboard",
+    riskAssessments: "/api/v1/risk-assessments",
+    riskPolicies: "/api/v1/risk-policies",
+    approvalsDashboard: "/api/v1/approvals/dashboard",
+    approvalsQueue: "/api/v1/approvals/queue",
+    approvalWorkflows: "/api/v1/approval-workflows",
+    workflowActors: "/api/v1/workflow-actors"
 });
 
 export const ROUTES = Object.freeze({
     dashboard: "/",
     clients: "/clients",
     clientRegistration: "/clients/new",
-    clientDetails: (id: string) => `/clients/${id}`,
-    clientEdit: (id: string) => `/clients/${id}/edit`,
+    clientDetails: (id: string) => `/clients/${encodeURIComponent(id)}`,
+    clientEdit: (id: string) => `/clients/${encodeURIComponent(id)}/edit`,
     accounts: "/accounts",
     accountRegistration: "/accounts/new",
-    accountDetails: (id: string) => `/accounts/${id}`,
+    accountDetails: (id: string) => `/accounts/${encodeURIComponent(id)}`,
     transactions: "/transactions",
     transactionCreate: "/transactions/new",
-    transactionDetails: (id: string) => `/transactions/${id}`
+    transactionDetails: (id: string) => `/transactions/${encodeURIComponent(id)}`,
+
+    risk: "/risk",
+    riskAssessments: "/risk/assessments",
+    riskAssessmentDetails: (id: string) =>
+        `/risk/assessments/${encodeURIComponent(id)}`,
+    riskPolicies: "/risk/policies",
+    riskPolicyNew: "/risk/policies/new",
+    riskPolicyDetails: (id: string) =>
+        `/risk/policies/${encodeURIComponent(id)}`,
+    riskPolicyEdit: (id: string) =>
+        `/risk/policies/${encodeURIComponent(id)}/edit`,
+
+    approvals: "/approvals",
+    approvalsQueue: "/approvals/queue",
+    approvalDetails: (id: string) =>
+        `/approvals/${encodeURIComponent(id)}`
 });
 
 export const PAGINATION = Object.freeze({

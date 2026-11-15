@@ -29,6 +29,16 @@ const navItems = [
         label: "Transactions",
         href: ROUTES.transactions,
         icon: "receipt_long"
+    },
+    {
+        label: "Risk Management",
+        href: ROUTES.risk,
+        icon: "shield"
+    },
+    {
+        label: "Approvals",
+        href: ROUTES.approvals,
+        icon: "fact_check"
     }
 ];
 
@@ -54,6 +64,33 @@ function getPageTitle(pathname: string) {
     if (pathname === "/transactions") return "Financial Transactions";
     if (pathname === "/transactions/new") return "Create Transfer";
     if (pathname.startsWith("/transactions")) return "Transaction Details";
+
+    if (pathname === ROUTES.risk) return "Risk Dashboard";
+    if (pathname === ROUTES.riskAssessments) return "Risk Assessments";
+    if (pathname === ROUTES.riskPolicies) return "Risk Policies";
+    if (pathname === ROUTES.riskPolicyNew) return "Create Risk Policy";
+
+    if (
+        pathname.startsWith("/risk/policies/") &&
+        pathname.endsWith("/edit")
+    ) {
+        return "Edit Risk Policy";
+    }
+
+    if (pathname.startsWith("/risk/policies/")) {
+        return "Risk Policy Details";
+    }
+
+    if (pathname.startsWith("/risk/assessments/")) {
+        return "Risk Assessment Details";
+    }
+
+    if (pathname === ROUTES.approvals) return "Approval Dashboard";
+    if (pathname === ROUTES.approvalsQueue) return "Approval Queue";
+
+    if (pathname.startsWith("/approvals/")) {
+        return "Approval Workflow Details";
+    }
 
     return "FinOps Enterprise";
 }
@@ -104,9 +141,8 @@ export default function AppShell({ children }: AppShellProps) {
                         <Link
                             key={item.href}
                             href={item.href}
-                            className={`sidebar-link ${
-                                isActive(pathname, item.href) ? "active" : ""
-                            }`}
+                            className={`sidebar-link ${isActive(pathname, item.href) ? "active" : ""
+                                }`}
                             onClick={() => setMenuOpen(false)}
                         >
                             <span className="material-symbols-rounded">

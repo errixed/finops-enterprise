@@ -187,18 +187,34 @@ export async function updateTransactionStatus({
     return result.modifiedCount === 1;
 }
 
-export async function findTransactionByIdempotencyKey(idempotencyKey) {
-    const document = await transactions().findOne({
-        idempotencyKey,
-        isLegacy: false
-    });
+export async function findTransactionByIdempotencyKey(
+    idempotencyKey,
+    options = {}
+) {
+    const document = await transactions().findOne(
+        {
+            idempotencyKey,
+            isLegacy: false
+        },
+        options
+    );
 
     return serializeTransactionDocument(document);
 }
 
-export async function insertPendingTransaction(transaction) {
+export async function insertPendingTransaction(
+    transaction,
+    session
+) {
+    if (!session?.inTransaction()) {
+        throw new Error(
+            "An active MongoDB transaction is required"
+        );
+    }
+
     const document = toTransactionDocument(transaction);
-    await transactions().insertOne(document);
+
+    await transactions().insertOne(document, { session });
 
     return serializeTransactionDocument(document);
 }
@@ -215,4 +231,142 @@ export async function findTransactionForProcessing(
         { transactionId },
         { session }
     );
+}
+
+export async function getRecentCompletedOutgoingActivity({
+    sourceAccountId,
+    currency,
+    periodHours = 24,
+    asOf = new Date(),
+    session
+}) {
+    if (
+        typeof sourceAccountId !== "string" ||
+        !["CAD", "USD"].includes(currency) ||
+        !Number.isSafeInteger(periodHours) ||
+        periodHours <= 0 ||
+        periodHours > 8760
+    ) {
+        throw new Error("Invalid transaction history parameters");
+    }
+
+    const end = new Date(asOf);
+
+    if (Number.isNaN(end.getTime())) {
+        throw new Error("Invalid assessment time");
+    }
+
+    const start = new Date(
+        end.getTime() - periodHours * 60 * 60 * 1000
+    );
+
+    const pipeline = [
+        {
+            $match: {
+                sourceAccountId,
+                currency,
+                transactionType: "Transfer",
+                status: "Completed",
+                isLegacy: false,
+                processedAt: {
+                    $gte: start,
+                    $lt: end
+                }
+            }
+        },
+        {
+            $group: {
+                _id: null,
+                count: { $sum: 1 },
+                volume: {
+                    $sum: { $toDecimal: "$amountMinor" }
+                }
+            }
+        }
+    ];
+
+    const options = session ? { session } : {};
+
+    const [result] = await transactions()
+        .aggregate(pipeline, options)
+        .toArray();
+
+    if (!result) {
+        return {
+            recentTransactionCount: 0,
+            recentTransferVolumeMinor: 0
+        };
+    }
+
+
+    const volume = BigInt(result.volume.toString());
+
+    if (
+        volume < 0n ||
+        volume > BigInt(Number.MAX_SAFE_INTEGER)
+    ) {
+        throw new RangeError(
+            "Recent transfer volume is outside the supported range"
+        );
+    }
+
+    if (
+        !Number.isSafeInteger(result.count) ||
+        result.count < 0
+    ) {
+        throw new RangeError(
+            "Invalid recent transaction count"
+        );
+    }
+
+    return {
+        recentTransactionCount: result.count,
+        recentTransferVolumeMinor: Number(volume)
+    };
+
+}
+
+export async function createRiskActivityIndex() {
+    await transactions().createIndex(
+        {
+            sourceAccountId: 1,
+            currency: 1,
+            status: 1,
+            processedAt: -1
+        },
+        {
+            name: "idx_transaction_risk_activity"
+        }
+    );
+}
+
+export async function updateTransactionApprovalStatus({
+    transactionId,
+    workflowId,
+    expectedApprovalStatus,
+    nextApprovalStatus,
+    session
+}) {
+    if (!session?.inTransaction()) {
+        throw new Error("An active MongoDB transaction is required");
+    }
+
+    const result = await transactions().updateOne(
+        {
+            transactionId,
+            approvalWorkflowId: workflowId,
+            approvalStatus: expectedApprovalStatus,
+            status: "Pending",
+            isLegacy: false
+        },
+        {
+            $set: {
+                approvalStatus: nextApprovalStatus,
+                updatedAt: new Date()
+            }
+        },
+        { session }
+    );
+
+    return result.modifiedCount === 1;
 }

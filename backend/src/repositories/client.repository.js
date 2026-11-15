@@ -16,8 +16,15 @@ function clients() {
     return getCollection("clients");
 }
 
-export async function findClientById(clientId) {
-    const document = await clients().findOne({ clientId });
+export async function findClientById(
+    clientId,
+    options = {}
+) {
+    const document = await clients().findOne(
+        { clientId },
+        options
+    );
+
     return serializeClientDocument(document);
 }
 

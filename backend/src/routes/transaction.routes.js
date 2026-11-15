@@ -5,11 +5,15 @@ import {
     createTransaction,
     processTransactionRequest
 } from "../controllers/transaction.controller.js";
+import {
+    getRiskAssessmentByTransaction
+} from "../controllers/risk-assessment.controller.js";
 
 const router = express.Router();
 
 router.get("/", listTransactions);
 router.get("/:id", getTransaction);
+router.get("/:id/risk-assessment", getRiskAssessmentByTransaction);
 
 router.post("/", createTransaction);
 router.post("/:id/process", processTransactionRequest);

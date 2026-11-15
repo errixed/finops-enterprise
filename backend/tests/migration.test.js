@@ -222,3 +222,115 @@ test("DB-06: historical Pending transactions remain protected", async t => {
         await closeMongoDB();
     }
 });
+
+test("DB-07: Assignment 3 migration preserves legacy data", async () => {
+    const transactions = db.collection("transactions");
+    const accounts = db.collection("accounts");
+
+    const beforeTransactions = await transactions
+        .find({ isLegacy: true })
+        .project({
+            _id: 0,
+            transactionId: 1,
+            status: 1
+        })
+        .sort({ transactionId: 1 })
+        .toArray();
+
+    const beforeAccounts = await accounts
+        .find({})
+        .project({
+            _id: 0,
+            accountId: 1,
+            balanceMinor: 1
+        })
+        .sort({ accountId: 1 })
+        .toArray();
+
+    const firstRun = await runScript("migrate-schema.js");
+
+    assert.match(
+        firstRun.stdout,
+        /Migration completed|Migration already completed/
+    );
+
+    const migration = await db
+        .collection("schema_migrations")
+        .findOne({
+            version: "assignment3_risk_approval_v1"
+        });
+
+    assert.ok(migration);
+    assert.equal(migration.status, "Completed");
+
+    for (const name of [
+        "risk_policies",
+        "risk_assessments",
+        "approval_policies",
+        "approval_workflows",
+        "approval_decisions",
+        "workflow_actors"
+    ]) {
+        const exists = await db
+            .listCollections({ name }, { nameOnly: true })
+            .hasNext();
+
+        assert.equal(exists, true, name);
+    }
+
+    assert.equal(
+        await db.collection("workflow_actors").countDocuments({
+            active: true
+        }),
+        4
+    );
+
+    const afterTransactions = await transactions
+        .find({ isLegacy: true })
+        .project({
+            _id: 0,
+            transactionId: 1,
+            status: 1
+        })
+        .sort({ transactionId: 1 })
+        .toArray();
+
+    assert.deepEqual(afterTransactions, beforeTransactions);
+
+    const afterAccounts = await accounts
+        .find({})
+        .project({
+            _id: 0,
+            accountId: 1,
+            balanceMinor: 1
+        })
+        .sort({ accountId: 1 })
+        .toArray();
+
+    assert.deepEqual(afterAccounts, beforeAccounts);
+
+    const historicalPending = await transactions
+        .find({ isLegacy: true, status: "Pending" })
+        .toArray();
+
+    for (const transaction of historicalPending) {
+        assert.equal(transaction.approvalStatus, "Cancelled");
+        assert.equal(transaction.approvalWorkflowId, null);
+        assert.equal(transaction.riskAssessmentId, null);
+    }
+
+    const secondRun = await runScript("migrate-schema.js");
+
+    assert.match(
+        secondRun.stdout,
+        /Migration already completed/
+    );
+
+    assert.equal(
+        await db.collection("schema_migrations")
+            .countDocuments({
+                version: "assignment3_risk_approval_v1"
+            }),
+        1
+    );
+});

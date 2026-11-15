@@ -6,6 +6,14 @@ import {
     processTransaction
 } from "../src/services/transaction-processing.service.js";
 
+import {
+    initializeRiskPolicies
+} from "../scripts/initialize-risk-policies.js";
+
+import {
+    initializeApprovalPolicies
+} from "../scripts/initialize-approval-policies.js";
+
 if (process.env.MONGODB_DATABASE !== "finops_enterprise_test") {
     throw new Error("An isolated MongoDB test database is required");
 }
@@ -109,10 +117,14 @@ before(async () => {
     await connectMongoDB();
     db = getDatabase();
 
+
     await db.dropDatabase();
     await initializeCollections();
     await initializeValidators();
     await initializeIndexes();
+    await initializeRiskPolicies();
+    await initializeApprovalPolicies();
+
 
     clientId = randomUUID();
 

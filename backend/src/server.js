@@ -8,6 +8,24 @@ import {
 import {
     initializeValidators
 } from "../scripts/initialize-validators.js";
+import {
+    initializeRiskPolicies
+} from "../scripts/initialize-risk-policies.js";
+import {
+    createRiskAssessmentIndexes
+} from "./repositories/risk-assessment.repository.js";
+import {
+    initializeApprovalPolicies
+} from "../scripts/initialize-approval-policies.js";
+import {
+    initializeApprovalWorkflowIndexes
+} from "./repositories/approval-workflow.repository.js";
+import {
+    createRiskActivityIndex
+} from "./repositories/transaction.repository.js";
+import {
+    initializeApprovalDecisionIndexes
+} from "./repositories/approval-decision.repository.js";
 
 async function startServer() {
     try {
@@ -15,8 +33,19 @@ async function startServer() {
 
         await initializeCollections();
 
+        await createRiskAssessmentIndexes();
+
         await initializeValidators();
 
+        await initializeRiskPolicies();
+
+        await initializeApprovalPolicies();
+        
+        await initializeApprovalWorkflowIndexes();
+
+        await initializeApprovalDecisionIndexes();
+
+        await createRiskActivityIndex();
         const server = app.listen(
             environment.port,
             () => {

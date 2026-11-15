@@ -13,9 +13,32 @@ import {
     isEligibleForProcessing,
     TRANSACTION_REJECTION_CODES
 } from "../utils/transaction-lifecycle.js";
+
 import {
     checkMongoPrimaryReady
 } from "../repositories/mongodb.repository.js";
+import {
+    findRiskAssessmentById
+} from "../repositories/risk-assessment.repository.js";
+
+import {
+    findApprovalWorkflowForProcessing
+} from "../repositories/approval-workflow.repository.js";
+
+import {
+    findRiskPolicyVersion
+} from "../repositories/risk-policy.repository.js";
+import {
+    validateAssessmentResult
+} from "./risk-assessment-document.service.js";
+
+import {
+    listApprovalDecisions
+} from "../repositories/approval-decision.repository.js";
+
+import {
+    verifyApprovalDecisionHistory
+} from "./approval-history.service.js";
 
 const MAX_BALANCE = BigInt(Number.MAX_SAFE_INTEGER);
 
@@ -25,11 +48,13 @@ const UUID_PATTERN =
 function processingError(
     message,
     statusCode = 409,
-    code = "TRANSACTION_NOT_ELIGIBLE"
+    code = "TRANSACTION_NOT_ELIGIBLE",
+    details = []
 ) {
     const error = new Error(message);
     error.statusCode = statusCode;
     error.code = code;
+    error.details = details;
     return error;
 }
 
@@ -126,6 +151,7 @@ async function rejectTransaction(
     return "Rejected";
 }
 
+
 async function executeTransfer(
     transactionId,
     session,
@@ -152,12 +178,175 @@ async function executeTransfer(
         );
     }
 
+    if (
+        !transaction.riskAssessmentId ||
+        !Number.isInteger(transaction.riskScore) ||
+        !["Low", "Medium", "High", "Critical"].includes(
+            transaction.riskLevel
+        ) ||
+        typeof transaction.approvalRequired !== "boolean"
+    ) {
+        throw processingError(
+            "Transaction has no valid risk assessment",
+            409,
+            "RISK_ASSESSMENT_REQUIRED"
+        );
+    }
+
+
+    const assessment = await findRiskAssessmentById(
+        transaction.riskAssessmentId,
+        { session }
+    );
+
+
+    if (
+        !assessment ||
+        assessment.transactionId !== transaction.transactionId ||
+        assessment.riskScore !== transaction.riskScore ||
+        assessment.riskLevel !== transaction.riskLevel ||
+        assessment.approvalRequired !==
+        transaction.approvalRequired
+    ) {
+        throw processingError(
+            "Transaction risk assessment is incomplete",
+            409,
+            "RISK_ASSESSMENT_INVALID"
+        );
+    }
+
+    const policy = await findRiskPolicyVersion(
+        assessment.policyId,
+        assessment.policyVersion,
+        transaction.currency,
+        session
+    );
+
+
+    if (!policy) {
+        throw processingError(
+            "Risk assessment policy cannot be verified",
+            409,
+            "RISK_POLICY_INVALID"
+        );
+    }
+
+    try {
+        validateAssessmentResult(
+            {
+                policyId: assessment.policyId,
+                policyVersion: assessment.policyVersion,
+                riskScore: assessment.riskScore,
+                riskLevel: assessment.riskLevel,
+                approvalRequired: assessment.approvalRequired,
+                triggeredRules: assessment.triggeredRules
+            },
+            policy
+        );
+    } catch {
+        throw processingError(
+            "Risk assessment does not match its policy",
+            409,
+            "RISK_ASSESSMENT_INVALID"
+        );
+    }
+
+    if (transaction.approvalRequired) {
+
+        const workflow = await findApprovalWorkflowForProcessing(
+            transaction.approvalWorkflowId,
+            transaction.transactionId,
+            assessment.assessmentId,
+            session
+        );
+
+
+        if (
+            !workflow ||
+            workflow.status !== "Approved" ||
+            transaction.approvalStatus !== "Approved"
+        ) {
+
+            throw processingError(
+                "The transaction requires approval before processing.",
+                409,
+                "APPROVAL_REQUIRED",
+                [
+                    {
+                        field: "approvalStatus",
+                        message: workflow?.status === "Rejected"
+                            ? "The approval workflow has been rejected."
+                            : workflow?.status === "Escalated"
+                                ? "The approval workflow is escalated."
+                                : "The approval workflow is pending."
+                    }
+                ]
+            );
+
+        }
+
+        if (
+            !Array.isArray(workflow.requiredStages) ||
+            workflow.requiredStages.length === 0 ||
+            workflow.requiredStages.some(
+                stage => stage.status !== "Approved"
+            )
+        ) {
+
+            throw processingError(
+                "Required approval stages are incomplete",
+                409,
+                "APPROVAL_REQUIRED",
+                [
+                    {
+                        field: "approvalStatus",
+                        message: "One or more required approval stages are incomplete."
+                    }
+                ]
+            );
+
+        }
+
+        const decisions = await listApprovalDecisions(
+            workflow.workflowId,
+            session
+        );
+
+        if (
+            !verifyApprovalDecisionHistory(
+                transaction,
+                workflow,
+                decisions
+            )
+        ) {
+            throw processingError(
+                "Approval decision history is incomplete or inconsistent",
+                409,
+                "APPROVAL_HISTORY_INVALID"
+            );
+        }
+
+    } else {
+        if (
+            transaction.riskLevel !== "Low" ||
+            transaction.approvalStatus !== "NotRequired" ||
+            transaction.approvalWorkflowId != null
+        ) {
+            throw processingError(
+                "Transaction approval state is inconsistent",
+                409,
+                "APPROVAL_STATE_INVALID"
+            );
+        }
+    }
+
     await changeStatus({
         transactionId,
         expectedStatus: "Pending",
         status: "Processing",
         session
     });
+
 
     const source = await findAccountForProcessing(
         transaction.sourceAccountId,

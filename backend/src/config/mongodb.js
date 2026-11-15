@@ -8,7 +8,14 @@ const COLLECTION_NAMES = Object.freeze([
     "clients",
     "accounts",
     "transactions",
-    "schema_migrations"
+    "schema_migrations",
+    "risk_policies",
+    "risk_assessments",
+    "approval_policies",
+    "approval_workflows",
+    "approval_decisions",
+    "workflow_actors"
+
 ]);
 
 export async function connectMongoDB() {

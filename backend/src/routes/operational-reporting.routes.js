@@ -1,0 +1,25 @@
+import express from "express";
+
+import {
+    getRiskDashboardReport,
+    getApprovalsDashboardReport,
+    getApprovalQueueReport
+} from "../controllers/operational-reporting.controller.js";
+
+export const riskReportingRouter = express.Router();
+export const approvalReportingRouter = express.Router();
+
+riskReportingRouter.get(
+    "/dashboard",
+    getRiskDashboardReport
+);
+
+approvalReportingRouter.get(
+    "/dashboard",
+    getApprovalsDashboardReport
+);
+
+approvalReportingRouter.get(
+    "/queue",
+    getApprovalQueueReport
+);

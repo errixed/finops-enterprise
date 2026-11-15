@@ -36,6 +36,14 @@ export interface TransactionDetails extends Omit<
     isLegacy: boolean;
     rejectionCode: string | null;
     rejectionReason: string | null;
+
+    riskAssessmentId?: string | null;
+    riskScore?: number | null;
+    riskLevel?: "Low" | "Medium" | "High" | "Critical" | null;
+    approvalRequired?: boolean;
+    approvalWorkflowId?: string | null;
+    approvalStatus?: string | null;
+
 }
 
 export interface TransactionFilters {

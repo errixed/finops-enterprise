@@ -2,6 +2,14 @@ import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 
+import {
+    initializeRiskPolicies
+} from "../scripts/initialize-risk-policies.js";
+
+import {
+    initializeApprovalPolicies
+} from "../scripts/initialize-approval-policies.js";
+
 if (process.env.MONGODB_DATABASE !== "finops_enterprise_test") {
     throw new Error("An isolated MongoDB test database is required");
 }
@@ -59,10 +67,14 @@ before(async () => {
     await connectMongoDB();
     db = getDatabase();
 
+
     await db.dropDatabase();
     await initializeCollections();
     await initializeValidators();
     await initializeIndexes();
+    await initializeRiskPolicies();
+    await initializeApprovalPolicies();
+
 
     server = app.listen(0);
 
