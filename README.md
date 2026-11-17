@@ -86,6 +86,7 @@ For the supplied Docker Compose app, from the project root:
 docker compose run --rm --no-deps \
   -e NODE_ENV=development \
   -e ALLOW_ALL_DEMO_SEEDS=1 \
+  -e ALLOW_APPROVAL_DEMO_SEED=1 \
   backend node scripts/seed.js
 ```
 
