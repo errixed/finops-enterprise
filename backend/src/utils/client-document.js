@@ -15,6 +15,9 @@ function toDate(value, field) {
 export function toClientDocument(client) {
     return {
         ...client,
+        nextReviewAt: client.nextReviewAt
+            ? toDate(client.nextReviewAt, "nextReviewAt")
+            : null,
         registrationNumberNormalized:
             normalizeRegistrationNumber(client.registrationNumber),
         createdAt: toDate(client.createdAt, "createdAt"),
@@ -42,6 +45,9 @@ export function serializeClientDocument(document) {
         updatedAt: toDate(
             client.updatedAt,
             "updatedAt"
-        ).toISOString()
+        ).toISOString(),
+        nextReviewAt: client.nextReviewAt
+            ? toDate(client.nextReviewAt, "nextReviewAt").toISOString()
+            : null,
     };
 }

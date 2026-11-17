@@ -27,27 +27,88 @@ function fail(message, statusCode = 400, field) {
     throw error;
 }
 
+function validateText(value, field, maxLength, required = true) {
+    if (typeof value !== "string") {
+        if (!required && value === undefined) return "";
+        fail(`${field} must be a string`, 400, field);
+    }
+
+    const result = value.trim();
+
+    if (required && !result) {
+        fail(`${field} is required`, 400, field);
+    }
+
+    if (result.length > maxLength) {
+        fail(`${field} cannot exceed ${maxLength} characters`, 400, field);
+    }
+
+    return result;
+}
+
+function validateDate(value) {
+    if (typeof value !== "string" ||
+        !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+        fail("A valid opening date is required", 400, "openDate");
+    }
+
+    const date = new Date(`${value}T00:00:00.000Z`);
+
+    if (
+        Number.isNaN(date.getTime()) ||
+        date.toISOString().slice(0, 10) !== value
+    ) {
+        fail("Invalid opening date", 400, "openDate");
+    }
+
+    const today = new Date().toISOString().slice(0, 10);
+
+    if (value > today) {
+        fail("Opening date cannot be in the future", 400, "openDate");
+    }
+
+    return value;
+}
+
+function validateBoolean(value, field, defaultValue = false) {
+    if (value === undefined) return defaultValue;
+
+    if (typeof value !== "boolean") {
+        fail(`${field} must be a boolean`, 400, field);
+    }
+
+    return value;
+}
+
 export async function createAccount(input) {
     if (!input || typeof input !== "object" || Array.isArray(input)) {
         fail("Invalid account data");
     }
 
-    const allowed = [
+    const allowed = new Set([
         "clientId",
         "accountType",
+        "accountName",
         "currency",
-        "balanceMinor"
-    ];
+        "purpose",
+        "status",
+        "openDate",
+        "balanceMinor",
+        "creditLimitMinor",
+        "allowTransactions",
+        "allowInternationalTransactions",
+        "requireDualApproval",
+        "temporaryAccount",
+        "notes"
+    ]);
 
     for (const field of Object.keys(input)) {
-        if (!allowed.includes(field)) {
+        if (!allowed.has(field)) {
             fail(`${field} cannot be supplied`, 400, field);
         }
     }
 
-    if (typeof input.clientId !== "string" || !input.clientId.trim()) {
-        fail("Client ID is required", 400, "clientId");
-    }
+    const clientId = validateText(input.clientId, "clientId", 100);
 
     if (!ACCOUNT_TYPES.includes(input.accountType)) {
         fail("Unsupported account type", 400, "accountType");
@@ -57,17 +118,96 @@ export async function createAccount(input) {
         fail("Unsupported currency", 400, "currency");
     }
 
-    validateMinorUnits(input.balanceMinor);
+    const accountName = validateText(
+        input.accountName,
+        "accountName",
+        120
+    );
 
-    const client = await findClientById(input.clientId);
+    const purpose = validateText(
+        input.purpose,
+        "purpose",
+        250
+    );
+
+    const openDate = validateDate(input.openDate);
+
+    const status = input.status ?? "Active";
+
+    if (!STATUSES.includes(status)) {
+        fail("Unsupported account status", 400, "status");
+    }
+
+    try {
+        validateMinorUnits(input.balanceMinor);
+    } catch {
+        fail("Invalid initial balance", 400, "balanceMinor");
+    }
+
+    const creditLimitMinor = input.creditLimitMinor ?? null;
+
+    if (creditLimitMinor !== null) {
+        try {
+            validateMinorUnits(creditLimitMinor);
+        } catch {
+            fail("Invalid credit limit", 400, "creditLimitMinor");
+        }
+    }
+
+    const allowTransactions = validateBoolean(
+        input.allowTransactions,
+        "allowTransactions",
+        true
+    );
+
+    const allowInternationalTransactions = validateBoolean(
+        input.allowInternationalTransactions,
+        "allowInternationalTransactions",
+        false
+    );
+
+    const requireDualApproval = validateBoolean(
+        input.requireDualApproval,
+        "requireDualApproval"
+    );
+
+    const temporaryAccount = validateBoolean(
+        input.temporaryAccount,
+        "temporaryAccount"
+    );
+
+    const notes = validateText(
+        input.notes ?? "",
+        "notes",
+        500,
+        false
+    );
+
+    if (!allowTransactions && allowInternationalTransactions) {
+        fail(
+            "International transactions require transactions to be enabled",
+            400,
+            "allowInternationalTransactions"
+        );
+    }
+
+    const client = await findClientById(clientId);
 
     if (!client) {
-        fail("Corporate client not found", 404, "clientId");
+        fail("Client not found", 404, "clientId");
     }
 
     if (client.status !== "Active") {
         fail(
-            "Financial accounts can only be created for active clients",
+            "Accounts can only be created for active clients",
+            409,
+            "clientId"
+        );
+    }
+
+    if (client.clientType === "Individual") {
+        fail(
+            "This workflow requires a corporate client",
             409,
             "clientId"
         );
@@ -76,9 +216,22 @@ export async function createAccount(input) {
     return insertAccount({
         clientId: client.clientId,
         accountType: input.accountType,
+        accountName,
         currency: input.currency,
+        purpose,
+        status,
+        openDate,
         balanceMinor: input.balanceMinor,
-        status: "Active",
+        initialBalanceMinor: input.balanceMinor,
+        creditLimitMinor,
+        outstandingCreditMinor:
+            creditLimitMinor === null ? null : 0,
+        allowTransactions,
+        allowInternationalTransactions,
+        requireDualApproval,
+        temporaryAccount,
+        notes,
+        version: 0,
         createdAt: new Date().toISOString()
     });
 }
@@ -140,10 +293,8 @@ export async function getAccountById(accountId) {
 
     return {
         ...account,
-        companyName:
-            client?.companyName ?? "Unknown client",
-        clientStatus:
-            client?.status ?? "Unknown",
+        companyName: client?.companyName ?? "Unknown client",
+        clientStatus: client?.status ?? "Unknown",
         transactions
     };
 }

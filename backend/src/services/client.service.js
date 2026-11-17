@@ -3,7 +3,8 @@ import {
     findClientById,
     insertClient,
     updateClient,
-    searchClients
+    searchClients,
+    getClientDirectoryStatistics
 } from "../repositories/client.repository.js";
 import {
     findAccountsByClientId
@@ -52,6 +53,25 @@ function validateFields(input, isUpdate = false) {
         fail("Invalid client data", 400);
     }
 
+
+
+    const additionalFields = [
+        "operatingName",
+        "incorporationDate",
+        "currency",
+        "organizationSize",
+        "businessAddress",
+        "city",
+        "provinceState",
+        "postalCode",
+        "website",
+        "riskRating",
+        "complianceCategory",
+        "kycStatus",
+        "checklist",
+        "contacts"
+    ];
+
     const allowed = isUpdate
         ? [
             "companyName",
@@ -59,7 +79,11 @@ function validateFields(input, isUpdate = false) {
             "country",
             "contactEmail",
             "contactPhone",
-            "status"
+            "status",
+            "clientType",
+            "relationshipManager",
+            "nextReviewAt",
+            ...additionalFields
         ]
         : [
             "companyName",
@@ -67,8 +91,14 @@ function validateFields(input, isUpdate = false) {
             "industry",
             "country",
             "contactEmail",
-            "contactPhone"
+            "contactPhone",
+            "clientType",
+            "relationshipManager",
+            "nextReviewAt",
+            ...additionalFields
         ];
+
+
 
     for (const field of Object.keys(input)) {
         if (!allowed.includes(field)) {
@@ -156,6 +186,204 @@ function validateFields(input, isUpdate = false) {
         result.status = input.status;
     }
 
+    if (input.clientType !== undefined) {
+        if (!["Corporate", "Individual"].includes(input.clientType)) {
+            fail("Invalid client type", 400, "clientType");
+        }
+
+        result.clientType = input.clientType;
+    } else if (!isUpdate) {
+        result.clientType = "Corporate";
+    }
+
+    if (input.relationshipManager !== undefined) {
+        if (input.relationshipManager === null ||
+            input.relationshipManager === "") {
+            result.relationshipManager = null;
+        } else {
+            result.relationshipManager = validateString(
+                input.relationshipManager,
+                "relationshipManager",
+                2,
+                100
+            );
+        }
+    }
+
+    if (input.nextReviewAt !== undefined) {
+        if (input.nextReviewAt === null ||
+            input.nextReviewAt === "") {
+            result.nextReviewAt = null;
+        } else {
+            const date = new Date(input.nextReviewAt);
+
+            if (Number.isNaN(date.getTime())) {
+                fail("Invalid review date", 400, "nextReviewAt");
+            }
+
+            result.nextReviewAt = date.toISOString();
+        }
+    }
+
+    for (const field of [
+        "operatingName",
+        "organizationSize",
+        "businessAddress",
+        "city",
+        "provinceState",
+        "postalCode",
+        "website"
+    ]) {
+        if (input[field] !== undefined) {
+            result[field] = validateString(
+                input[field],
+                field,
+                0,
+                field === "website" ? 500 : 200
+            );
+        }
+    }
+
+    if (input.incorporationDate !== undefined) {
+        const value = input.incorporationDate;
+
+        if (value === "") {
+            result.incorporationDate = null;
+        } else {
+            if (
+                typeof value !== "string" ||
+                !/^\d{4}-\d{2}-\d{2}$/.test(value) ||
+                Number.isNaN(Date.parse(`${value}T00:00:00Z`))
+            ) {
+                fail("Invalid incorporation date", 400, "incorporationDate");
+            }
+
+            result.incorporationDate = value;
+        }
+    }
+
+    if (input.currency !== undefined) {
+        if (!["CAD", "USD"].includes(input.currency)) {
+            fail("Unsupported currency", 400, "currency");
+        }
+
+        result.currency = input.currency;
+    }
+
+    if (input.riskRating !== undefined) {
+        if (!["Low", "Medium", "High", "Critical"]
+            .includes(input.riskRating)) {
+            fail("Invalid initial risk rating", 400, "riskRating");
+        }
+
+        result.riskRating = input.riskRating;
+    }
+
+    if (input.complianceCategory !== undefined) {
+        if (!["Standard", "Enhanced", "Restricted"]
+            .includes(input.complianceCategory)) {
+            fail("Invalid compliance category", 400, "complianceCategory");
+        }
+
+        result.complianceCategory = input.complianceCategory;
+    }
+
+    if (input.kycStatus !== undefined) {
+        if (![
+            "Not Started",
+            "In Progress",
+            "Pending Review",
+            "Verified",
+            "Rejected"
+        ].includes(input.kycStatus)) {
+            fail("Invalid KYC status", 400, "kycStatus");
+        }
+
+        result.kycStatus = input.kycStatus;
+    }
+
+    if (input.checklist !== undefined) {
+        const validItems = [
+            "Government ID / Incorporation Documents",
+            "Proof of Address",
+            "Beneficial Ownership (if applicable)",
+            "Sanctions & PEP Screening",
+            "Compliance Review"
+        ];
+
+        if (
+            !Array.isArray(input.checklist) ||
+            input.checklist.some(item => !validItems.includes(item)) ||
+            new Set(input.checklist).size !== input.checklist.length
+        ) {
+            fail("Invalid compliance checklist", 400, "checklist");
+        }
+
+        result.checklist = input.checklist;
+    }
+
+    if (input.contacts !== undefined) {
+        if (
+            !Array.isArray(input.contacts) ||
+            input.contacts.length > 50
+        ) {
+            fail("Invalid contact list", 400, "contacts");
+        }
+
+        result.contacts = input.contacts.map(contact => {
+            if (
+                !contact ||
+                typeof contact !== "object" ||
+                Array.isArray(contact)
+            ) {
+                fail("Invalid contact", 400, "contacts");
+            }
+
+            const email = validateString(
+                contact.email ?? "",
+                "contact.email",
+                0,
+                254
+            );
+
+            if (email && !validateEmail(email)) {
+                fail("Invalid contact email", 400, "contacts");
+            }
+
+            return {
+                id: validateString(contact.id, "contact.id", 1, 100),
+                name: validateString(contact.name, "contact.name", 2, 150),
+                role: validateString(contact.role, "contact.role", 2, 100),
+                email,
+                phone: validateString(
+                    contact.phone ?? "",
+                    "contact.phone",
+                    0,
+                    30
+                ),
+                primary: contact.primary === true
+            };
+        });
+
+        if (
+            result.contacts.length > 0 &&
+            result.contacts.filter(contact => contact.primary).length !== 1
+        ) {
+            fail(
+                "Exactly one primary contact is required",
+                400,
+                "contacts"
+            );
+        }
+
+        if (
+            new Set(result.contacts.map(contact => contact.id)).size !==
+            result.contacts.length
+        ) {
+            fail("Duplicate contact ID", 400, "contacts");
+        }
+    }
+
     return result;
 }
 
@@ -165,7 +393,11 @@ export async function getAllClients({
     industry = "",
     country = "",
     page = 1,
-    pageSize = 10
+    pageSize = 10,
+    clientType = "",
+    relationshipManager = "",
+    dateFrom = "",
+    dateTo = "",
 } = {}) {
     if (status && !STATUSES.includes(status)) {
         fail("Unsupported status filter", 400, "status");
@@ -183,11 +415,43 @@ export async function getAllClients({
         fail("Invalid search parameter", 400, "search");
     }
 
+    if (clientType &&
+        !["Corporate", "Individual"].includes(clientType)) {
+        fail("Invalid client type filter", 400, "clientType");
+    }
+
+    if (relationshipManager &&
+        (typeof relationshipManager !== "string" ||
+            relationshipManager.length > 100)) {
+        fail("Invalid relationship manager", 400, "relationshipManager");
+    }
+
+    for (const [field, value] of [
+        ["dateFrom", dateFrom],
+        ["dateTo", dateTo]
+    ]) {
+        if (value && (
+            typeof value !== "string" ||
+            !/^\d{4}-\d{2}-\d{2}$/.test(value) ||
+            !Number.isFinite(Date.parse(`${value}T00:00:00Z`))
+        )) {
+            fail(`Invalid ${field}`, 400, field);
+        }
+    }
+
+    if (dateFrom && dateTo && dateFrom > dateTo) {
+        fail("Start date must precede end date", 400);
+    }
+
     return searchClients({
         search,
         status,
         industry,
         country,
+        clientType,
+        relationshipManager,
+        dateFrom,
+        dateTo,
         page,
         pageSize
     });
@@ -248,8 +512,16 @@ export async function modifyClient(clientId, input) {
     });
 }
 
+
+export const CLIENT_TYPES = ["Corporate", "Individual"];
+
 export const CLIENT_OPTIONS = {
     industries: INDUSTRIES,
     countries: COUNTRIES,
-    statuses: STATUSES
+    statuses: STATUSES,
+    clientTypes: CLIENT_TYPES
 };
+
+export async function getClientDirectorySummary() {
+    return getClientDirectoryStatistics();
+}

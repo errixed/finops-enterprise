@@ -1,1100 +1,480 @@
 # FinOps Enterprise — Corporate Financial Operations Portal
 
-FinOps Enterprise is a full-stack web application for managing corporate clients, financial accounts, and simulated financial transfers. The application was developed for Assignment 1 and extended in Assignment 2 to support MongoDB persistence, financial transaction processing, and a fully containerized deployment.
+**Current source-based README** · Docker / Next.js / Express / MongoDB · Assignments 1–3
 
-The frontend uses Next.js 16, React 19, TypeScript, and CSS. The backend uses Node.js and Express 5 with ES modules. MongoDB is the application's sole runtime database, and Docker Compose manages the complete application environment.
+This README describes the source code supplied in `finops-enterprise(20261117-064018).zip`. The application simulates corporate client/account administration, internal transfers, risk assessment, approval workflows, operational reporting, policy management, and supporting documents. Transactions are simulated; no actual banking network is used.
 
-## 1. Quick Start — Installation and Setup
+## 1. First-time setup (start here)
 
 ### 1.1 Prerequisites
 
-The following software is required:
+Install **Docker Desktop** (with the `docker compose` command), **Git**, and a browser. Start Docker Desktop first. Node.js/npm are **not required** for the standard Docker deployment; they are needed if you want to run tests directly on the host.
 
-- Docker Desktop with Docker Compose
-- Git
-- A modern web browser
-
-Node.js and npm do not need to be installed locally to run the application through Docker.
-
-### 1.2 Clone the Repository
+### 1.2 Clone and configure
 
 ```bash
 git clone https://github.com/errixed/finops-enterprise.git
 cd finops-enterprise
-```
-
-### 1.3 Configure Environment Variables
-
-Copy the provided environment configuration:
-
-```bash
 cp .env.example .env
 ```
 
-Windows users: Run this command in Windows PowerShell, as the cp command is supported in PowerShell.
+The default `.env.example` contains:
 
-The default configuration is:
-
-```env
+```dotenv
 FRONTEND_PORT=8080
 PORT=3000
 NODE_ENV=production
-
 MONGODB_URI=mongodb://mongodb:27017/finops_enterprise?replicaSet=rs0
 MONGODB_DATABASE=finops_enterprise
-
 CORS_ORIGIN=http://localhost:8080
+NEXT_PUBLIC_API_BASE_URL=
 ```
 
-The default values are suitable for the provided Docker Compose configuration. Environment variables can be modified if different ports or database settings are required.
+**Do not replace `mongodb` with `localhost` inside the Docker Compose environment:** `mongodb` is the database service hostname on Docker's network. `NEXT_PUBLIC_API_BASE_URL` is empty by default so browser calls can use the public same-origin `/api/v1` proxy. Change `FRONTEND_PORT` and `CORS_ORIGIN` together if 8080 is unavailable.
 
-### 1.4 Build and Start the Application
+### 1.3 Build and launch
 
-Ensure Docker Desktop is running, then execute the following command from the project root:
+From the project root:
 
 ```bash
 docker compose up -d --build
-```
-
-Docker Compose automatically:
-
-1. Builds the frontend and backend images.
-2. Starts MongoDB.
-3. Initializes the MongoDB replica set.
-4. Executes the JSON-to-MongoDB migration.
-5. Starts the Express backend after migration.
-6. Starts the Next.js frontend.
-7. Starts NGINX as the application's public entry point.
-
-Health checks and service dependencies coordinate the startup process.
-
-The initial build downloads the required images and installs application dependencies inside the containers.
-
-### 1.5 Access the Application
-
-Once all required services are running, open:
-
-**Application:** http://localhost:8080
-
-**Backend health endpoint:** http://localhost:8080/api/v1/health
-
-**Dashboard API:** http://localhost:8080/api/v1/dashboard/summary
-
-All frontend and API requests are served through NGINX on port 8080 by default.
-
-The backend and MongoDB services communicate internally through the Docker network.
-
-### 1.6 Verify the Containers
-
-Check the container status:
-
-```bash
 docker compose ps
 ```
 
-View application logs:
+Compose starts MongoDB, waits for replica-set health, runs the `migrate` service (`migrate-json-to-mongodb.js` followed by `migrate-schema.js`), then starts the backend, frontend and Nginx. First builds can take longer as Docker installs dependencies. Check that `mongodb`, `backend`, `frontend`, and `nginx` report **healthy**. The one-off `migrate` container is expected to **exit successfully**.
+
+### 1.4 Open and verify
+
+- **Web application:** http://localhost:8080
+- **API health:** http://localhost:8080/api/v1/health
+- **API base URL:** `http://localhost:8080/api/v1`
 
 ```bash
-docker compose logs --tail=100
+curl -i http://localhost:8080/api/v1/health
+curl -i http://localhost:8080/api/v1/clients
 ```
 
-View specific service logs:
+The backend listens on **port 3000 inside Docker only**, and the frontend on **3001 inside Docker only**. The host-facing entry point is Nginx on **8080**. Consequently `curl localhost:3000` on the host will fail with the supplied Compose file; this is expected.
+
+### 1.5 Routine commands
 
 ```bash
-docker compose logs backend --tail=100
-docker compose logs frontend --tail=100
-docker compose logs mongodb --tail=100
-docker compose logs migrate --tail=100
-```
-
-### 1.7 Stop or Restart the Application
-
-Stop the application while preserving the database:
-
-```bash
+docker compose ps
+docker compose logs --tail=100 backend
+docker compose logs --tail=100 frontend
+docker compose logs --tail=100 migrate
+docker compose logs --tail=100 nginx
 docker compose down
-```
-
-Start it again:
-
-```bash
 docker compose up -d
-```
-
-Rebuild after code changes:
-
-```bash
 docker compose up -d --build
 ```
 
-MongoDB uses a persistent Docker volume named `mongodb_data`.
+`docker compose down` **keeps** the MongoDB volume. **Never use `docker compose down -v` unless you deliberately want to destroy persisted data.**
 
-Do not use `docker compose down -v` unless the intention is to delete the stored database.
+### 1.6 Initial data and optional demo data
 
-### 1.8 Troubleshooting
+Historical clients, accounts and transactions come from the `backend/data/legacy/*.json` files and are imported by the automatic migration. This data is separate from the optional demo seed. For richer dashboards/approvals, follow the explicit seed procedure in §2 below. Running a seed is **not required** simply to start the application.
 
-If a service fails to start, inspect its logs:
+## 2. Development demo seeds
+
+The combined seed entry point is **`backend/scripts/seed.js`**. It performs five stages: core demonstration clients/accounts/transactions, risk cases, credit-related examples, account/balance history, and approval-management examples. The file enforces `NODE_ENV=development` and `ALLOW_ALL_DEMO_SEEDS=1`; without both it exits. **Seeds modify the selected database**, so run them only against a disposable/dev database or a database whose demo data you explicitly want to change.
+
+For the supplied Docker Compose app, from the project root:
 
 ```bash
-docker compose ps -a
-docker compose logs migrate --tail=100
-docker compose logs backend --tail=100
-docker compose logs nginx --tail=100
+docker compose run --rm --no-deps \
+  -e NODE_ENV=development \
+  -e ALLOW_ALL_DEMO_SEEDS=1 \
+  backend node scripts/seed.js
 ```
 
-A migration failure prevents the backend and dependent services from starting successfully.
+MongoDB must already be running and healthy (`docker compose up -d`). The seed script includes insert-only demonstration data in some phases; it is not a general database reset, and you should review the script before rerunning on valuable data. Inspect resulting records through the UI or API, and read the console summary for each seed stage.
 
-If the frontend returns HTTP 502, verify that the backend is healthy and that the migration completed successfully.
-
-If the migration fails because a JSON source file is missing, verify that the following files exist:
-
-```text
-backend/data/legacy/clients.json
-backend/data/legacy/accounts.json
-backend/data/legacy/transactions.json
-```
-
-If port 8080 is already occupied, change `FRONTEND_PORT` in `.env` and restart the application. Adjust `CORS_ORIGIN` when changing the public application origin.
-
-## 2. Project Overview
-
-FinOps Enterprise provides a centralized corporate financial operations portal.
-
-Assignment 1 established client management, account management, transaction visibility, dashboard reporting, REST API endpoints, and a layered backend architecture.
-
-Assignment 2 extends the application with:
-
-- MongoDB persistence instead of JSON-file repositories.
-- Automated migration of the Assignment 1 dataset.
-- Transaction initiation and processing.
-- Financial business-rule validation.
-- Idempotent transaction creation.
-- Atomic financial transfers using MongoDB transactions.
-- Conditional status transitions and concurrency protection.
-- Completed and Rejected processing outcomes.
-- Enhanced transaction details and dashboard indicators.
-- Docker-based deployment with NGINX.
-
-The existing Assignment 1 functionality remains available.
-
-## 3. Business Scenario
-
-A financial institution requires an internal portal to register corporate clients, manage financial accounts, review financial activity, and execute simulated transfers between accounts.
-
-FinOps Enterprise allows users to:
-
-- Register and maintain corporate client information.
-- Search, filter, and inspect corporate clients.
-- Register accounts associated with eligible clients.
-- View account details and balances.
-- Search and inspect historical transactions.
-- Initiate financial transfers between existing accounts.
-- Process eligible Pending transactions.
-- Review successful and rejected processing outcomes.
-- Monitor financial activity through the operations dashboard.
-
-The system applies business rules for client registration, account creation, transaction validation, balance availability, currency compatibility, and financial transaction processing.
-
-The financial transfers are simulated operations performed within the application's MongoDB database. The system does not connect to external banking or payment networks.
-
-## 4. Technologies
-
-| Component | Technology |
-|---|---|
-| Frontend | Next.js 16.4.0, React 19.3.0, TypeScript |
-| Frontend styling | CSS, Google Material Symbols Rounded |
-| Backend | Node.js 24, Express.js 5.2.1 |
-| Backend modules | JavaScript ES modules |
-| Database | MongoDB 7 |
-| Database driver | MongoDB Node.js Driver |
-| Reverse proxy | NGINX |
-| Containerization | Docker and Docker Compose |
-| API testing | Postman |
-| Automated testing | Node.js built-in test runner |
-| Dataset validation | Node.js validation scripts |
-| Package management | npm |
-| Version control | Git and GitHub |
-
-The application uses Next.js rather than Vite.
-
-## 5. Application Architecture
-
-The application follows a layered architecture that separates presentation, HTTP handling, business rules, and database access.
-
-### 5.1 Request Flow
-
-```text
-Browser
-   |
-   v
-NGINX
-   |
-   +-----------------------+
-   |                       |
-   v                       v
-Next.js Frontend       Express Backend
-                           |
-                           v
-                        Routes
-                           |
-                           v
-                       Controllers
-                           |
-                           v
-                        Services
-                           |
-                           v
-                       Repositories
-                           |
-                           v
-                         MongoDB
-```
-
-NGINX receives requests on the application's public port.
-
-Requests to `/api/v1/*` are forwarded to the Express backend. Other application requests are forwarded to the Next.js frontend.
-
-The frontend communicates with the backend through REST APIs. It does not connect directly to MongoDB.
-
-### 5.2 Frontend Architecture
-
-The frontend is organized into:
-
-- `frontend/src/app/` — Application pages and routes.
-- `frontend/src/components/` — Reusable UI and form components.
-- `frontend/src/services/` — HTTP requests, API types, and frontend service functions.
-- `frontend/src/app/globals.css` — Application styling.
-- `frontend/config.ts` — Frontend application and API route configuration.
-
-React components manage user interaction, form validation, loading states, error handling, and navigation.
-
-### 5.3 Backend Architecture
-
-The backend is organized into:
-
-- Routes — Define REST API endpoints.
-- Controllers — Handle HTTP requests and responses.
-- Services — Enforce validation and business rules.
-- Repositories — Execute MongoDB queries and updates.
-- Configuration — Manage environment settings and database connections.
-- Middleware — Handle logging, errors, and unmatched routes.
-- Utilities — Provide reusable financial, document, and transaction functions.
-
-Controllers do not directly execute MongoDB queries.
-
-Business rules are implemented in services, while repositories encapsulate database operations.
-
-A shared MongoDB client is initialized during backend startup.
-
-### 5.4 Database Architecture
-
-MongoDB is the sole runtime persistence system.
-
-The database is named:
-
-```text
-finops_enterprise
-```
-
-Its collections include:
-
-- `clients`
-- `accounts`
-- `transactions`
-- `schema_migrations`
-
-Indexes and collection validators are initialized as part of the database migration and setup process.
-
-## 6. Project Structure
-
-```text
-finops-enterprise/
-├── backend/
-│   ├── data/
-│   │   └── legacy/
-│   │       ├── clients.json
-│   │       ├── accounts.json
-│   │       └── transactions.json
-│   ├── scripts/
-│   │   ├── initialize-indexes.js
-│   │   ├── initialize-validators.js
-│   │   ├── migrate-json-to-mongodb.js
-│   │   ├── validate-data.js
-│   │   └── verify-migration.js
-│   ├── src/
-│   │   ├── config/
-│   │   ├── controllers/
-│   │   ├── middleware/
-│   │   ├── repositories/
-│   │   ├── routes/
-│   │   ├── services/
-│   │   ├── utils/
-│   │   ├── app.js
-│   │   └── server.js
-│   ├── tests/
-│   │   ├── concurrency.test.js
-│   │   ├── integration.test.js
-│   │   ├── migration.test.js
-│   │   ├── repository.test.js
-│   │   └── transaction-processing.test.js
-│   ├── Dockerfile
-│   └── package.json
-├── frontend/
-│   ├── src/
-│   │   ├── app/
-│   │   ├── components/
-│   │   └── services/
-│   ├── Dockerfile
-│   ├── nginx.conf
-│   ├── next.config.ts
-│   ├── config.ts
-│   └── package.json
-├── mongodb/
-│   └── replica-set-init/
-│       └── init.sh
-├── postman/
-│   └── postman.json
-├── screenshots/
-├── scripts/
-│   └── start.js
-├── docker-compose.yml
-├── .env.example
-├── .gitignore
-├── package.json
-└── README.md
-```
-
-The project structure excludes installed dependencies and generated build files.
-
-The JSON files inside `backend/data/legacy/` are historical source data used for migration and validation. They are not the application's runtime persistence mechanism.
-
-## 7. MongoDB Migration
-
-### 7.1 Migration Objective
-
-Assignment 1 used JSON files to store clients, accounts, and transactions.
-
-Assignment 2 migrates the historical records to MongoDB while preserving the original identifiers, relationships, and financial values.
-
-### 7.2 Source Dataset
-
-The historical dataset is stored in:
-
-```text
-backend/data/legacy/
-```
-
-It contains:
-
-| Collection | Historical Records |
-|---|---:|
-| Clients | 10 |
-| Accounts | 20 |
-| Transactions | 50 |
-| Total | 80 |
-
-The historical transactions include:
-
-| Status | Count |
-|---|---:|
-| Pending | 8 |
-| Completed | 38 |
-| Rejected | 4 |
-
-These values describe the original migration dataset, not necessarily the current MongoDB record counts.
-
-### 7.3 Migration Process
-
-The migration script is located at:
-
-```text
-backend/scripts/migrate-json-to-mongodb.js
-```
-
-It performs the following operations:
-
-1. Loads and validates the historical JSON dataset.
-2. Connects to MongoDB.
-3. Initializes the required collections and validators.
-4. Creates or verifies database indexes.
-5. Converts the historical records into MongoDB documents.
-6. Preserves the original public UUIDs and account numbers.
-7. Preserves financial amounts and existing relationships.
-8. Imports clients, accounts, and transactions.
-9. Verifies migrated record counts and values.
-10. Records successful migration information in `schema_migrations`.
-
-Migration operations use MongoDB transactions to prevent partially committed imports.
-
-The migration records a version and a checksum of the source dataset.
-
-If the same migration has already completed successfully, the script skips the import rather than creating duplicate records.
-
-A source-data conflict or incomplete migration is reported as an error.
-
-### 7.4 Legacy Transactions
-
-Historical transactions retain their original business status and are marked as legacy records.
-
-Historical Completed and Rejected transactions remain terminal.
-
-Historical Pending transactions are protected from the new processing operation.
-
-Only newly initiated, eligible, non-legacy Pending transactions can be processed.
-
-### 7.5 Verify Migration
-
-After starting Docker, check the migration logs:
-
-```bash
-docker compose logs migrate --tail=100
-```
-
-Run migration verification:
+Related initialization scripts:
 
 ```bash
 docker compose run --rm --no-deps backend node scripts/verify-migration.js
-```
-
-The verification compares the original historical records against the corresponding MongoDB documents.
-
-New records created after migration do not replace or modify the original legacy source files.
-
-## 8. Data Model
-
-### 8.1 Clients
-
-Client documents contain fields such as:
-
-- `clientId`
-- `companyName`
-- `registrationNumber`
-- `registrationNumberNormalized`
-- `industry`
-- `country`
-- `contactEmail`
-- `contactPhone`
-- `status`
-- `createdAt`
-- `updatedAt`
-
-Client statuses include Active, Inactive, and Suspended.
-
-Registration numbers are normalized to support uniqueness checks.
-
-A client can own multiple financial accounts.
-
-### 8.2 Accounts
-
-Account documents contain fields such as:
-
-- `accountId`
-- `clientId`
-- `accountNumber`
-- `accountType`
-- `currency`
-- `balanceMinor`
-- `status`
-- `createdAt`
-
-Each account belongs to an existing client.
-
-Account creation requires an eligible Active client.
-
-Account numbers are unique.
-
-Account statuses include Active, Frozen, and Closed.
-
-Supported currencies include CAD and USD.
-
-### 8.3 Transactions
-
-Transaction documents contain fields such as:
-
-- `transactionId`
-- `referenceNumber`
-- `sourceAccountId`
-- `destinationAccountId`
-- `amountMinor`
-- `currency`
-- `transactionType`
-- `description`
-- `status`
-- `idempotencyKey`
-- `requestFingerprint`
-- `isLegacy`
-- `rejectionCode`
-- `rejectionReason`
-- `createdAt`
-- `updatedAt`
-- `processedAt`
-
-Each transaction references a source and destination account.
-
-New transfers are created with status Pending.
-
-A successfully processed transfer becomes Completed.
-
-A business-rule failure during processing results in Rejected with an appropriate code and reason.
-
-### 8.4 Monetary Values
-
-Financial balances and transaction amounts are stored as integer minor units.
-
-For example:
-
-```text
-CAD 125.50 = 12550 minor units
-USD 80.00  = 8000 minor units
-```
-
-Using integer minor units avoids floating-point precision issues during financial calculations.
-
-Validation also checks that monetary values remain within the supported safe integer range.
-
-## 9. Financial Transaction Processing
-
-### 9.1 Transaction Initiation
-
-Users can create simulated financial transfers through the Transaction Creation page.
-
-The initiation process requires:
-
-- A valid source account.
-- A valid destination account.
-- Different source and destination accounts.
-- Compatible account currencies.
-- A positive transaction amount.
-- A description within the supported length.
-- An idempotency key.
-
-The backend generates the transaction ID and reference number.
-
-Successful initiation creates a Pending transaction without immediately modifying account balances.
-
-Initiation and processing are separate operations.
-
-### 9.2 Transaction Lifecycle
-
-```text
-Pending
-   |
-   v
-Processing
-   |
-   +------------------+
-   |                  |
-   v                  v
-Completed          Rejected
-```
-
-The transaction states are:
-
-| Status | Description |
-|---|---|
-| Pending | Transfer instruction has been created |
-| Processing | Transfer eligibility and financial conditions are being evaluated |
-| Completed | Transfer completed and both balances were updated |
-| Rejected | Processing failed a business rule without changing balances |
-
-Completed and Rejected are terminal states.
-
-Processing may be a temporary state within the MongoDB transaction and does not need to be externally visible before the terminal outcome commits.
-
-### 9.3 Processing Business Rules
-
-The backend validates transaction eligibility and current financial conditions at processing time.
-
-Rules include:
-
-- The transaction must be eligible and non-legacy.
-- The transaction must currently be Pending.
-- Both accounts must exist.
-- Both accounts must be Active.
-- Account currencies must be compatible.
-- The source account must have sufficient funds.
-- The destination balance must remain within the supported integer range.
-- The transfer must not execute more than once.
-
-A successful transfer debits the source account and credits the destination account by exactly the same amount.
-
-The combined balance of both accounts must remain unchanged.
-
-### 9.4 Atomic Processing
-
-The backend performs financial processing using MongoDB multi-document transactions.
-
-The processing service:
-
-1. Starts a MongoDB client session and transaction.
-2. Validates the current transaction state.
-3. Retrieves and validates the participating accounts.
-4. Checks the current source balance.
-5. Calculates the resulting balances.
-6. Conditionally updates the source and destination balances.
-7. Records the final transaction status and processing timestamp.
-8. Commits the transaction.
-
-The participating financial updates use the same database session.
-
-A business-rule rejection records the Rejected outcome without applying the transfer's balance changes.
-
-An unexpected database failure aborts the MongoDB transaction.
-
-This prevents a partially completed transfer from being committed.
-
-### 9.5 Rejection Codes
-
-Supported rejection codes include:
-
-| Code | Meaning |
-|---|---|
-| `INSUFFICIENT_FUNDS` | Source account has insufficient funds |
-| `SOURCE_ACCOUNT_INACTIVE` | Source account is not Active |
-| `DESTINATION_ACCOUNT_INACTIVE` | Destination account is not Active |
-| `CURRENCY_MISMATCH` | Account currencies are incompatible |
-| `ACCOUNT_NOT_FOUND` | A participating account no longer exists |
-| `BUSINESS_RULE_VIOLATION` | Another documented processing restriction failed |
-
-Rejected transactions preserve the rejection code and reason.
-
-They cannot be processed again.
-
-### 9.6 Idempotency and Concurrency
-
-Transaction initiation requires the `Idempotency-Key` HTTP header.
-
-A repeated request with the same key and matching normalized request returns the existing transaction.
-
-Reusing the same key with a different request produces HTTP 409.
-
-Idempotency information is stored in MongoDB so protection remains effective after application restarts.
-
-Processing uses conditional status transitions and concurrency-safe balance updates to prevent duplicate execution and lost balance updates.
-
-## 10. REST API
-
-All application endpoints use the `/api/v1` prefix.
-
-### 10.1 Existing API Endpoints
-
-| Method | Endpoint | Description |
-|---|---|---|
-| GET | `/health` | Check application and database health |
-| GET | `/dashboard/summary` | Retrieve operations dashboard statistics |
-| GET | `/clients` | List and filter clients |
-| GET | `/clients/options` | Retrieve client form options |
-| GET | `/clients/:id` | Retrieve client details |
-| GET | `/clients/:id/accounts` | Retrieve client accounts |
-| POST | `/clients` | Register a client |
-| PUT | `/clients/:id` | Update client information |
-| PATCH | `/clients/:id` | Update client information |
-| GET | `/accounts` | List and filter accounts |
-| GET | `/accounts/options` | Retrieve account form options |
-| GET | `/accounts/:id` | Retrieve account details |
-| POST | `/accounts` | Register an account |
-| GET | `/transactions` | List and filter transactions |
-| GET | `/transactions/:id` | Retrieve transaction details |
-
-All directory data is retrieved from MongoDB.
-
-Filtering, sorting, and pagination are performed within database queries rather than loading entire collections into application memory.
-
-### 10.2 New Assignment 2 Endpoints
-
-| Method | Endpoint | Description |
-|---|---|---|
-| POST | `/transactions` | Initiate a financial transfer |
-| POST | `/transactions/:id/process` | Process an eligible Pending transfer |
-
-### 10.3 Initiate a Transaction
-
-**Endpoint:**
-
-```http
-POST /api/v1/transactions
-```
-
-**Required header:**
-
-```http
-Idempotency-Key: transfer-example-001
-Content-Type: application/json
-```
-
-**Example request:**
-
-```json
-{
-  "sourceAccountId": "d82d86a1-ccf7-4a34-81d2-60c93a11d0f7",
-  "destinationAccountId": "f7bb29ce-9e48-447e-940b-184c31f5068a",
-  "amountMinor": 250000,
-  "currency": "CAD",
-  "description": "Supplier payment"
-}
-```
-
-The example account IDs must correspond to valid accounts in the database.
-
-Successful new initiation returns HTTP 201 and a Location header.
-
-The transaction is initially Pending.
-
-### 10.4 Process a Transaction
-
-**Endpoint:**
-
-```http
-POST /api/v1/transactions/:id/process
-```
-
-The request does not require a business request body.
-
-Possible results include:
-
-| Result | HTTP Status | Transaction Status |
-|---|---|---|
-| Successful transfer | 200 | Completed |
-| Business-rule rejection | 200 | Rejected |
-| Terminal or protected legacy transaction | 409 | Unchanged |
-| Missing transaction | 404 | Not applicable |
-
-Successful processing returns the final transaction information.
-
-### 10.5 Error Responses
-
-API errors follow a consistent structure:
-
-```json
-{
-  "error": {
-    "code": "TRANSACTION_ALREADY_PROCESSED",
-    "message": "The transaction is not eligible for processing.",
-    "details": []
-  }
-}
-```
-
-Relevant HTTP status codes include:
-
-| Status | Usage |
-|---|---|
-| 200 | Successful operation or business-rule processing outcome |
-| 201 | Resource created |
-| 400 | Invalid request |
-| 404 | Resource not found |
-| 409 | Uniqueness, idempotency, or lifecycle conflict |
-| 500 | Unexpected server error |
-| 503 | Required database service unavailable |
-
-Database credentials, connection strings, and internal stack traces must not be exposed through API responses.
-
-## 11. Frontend Features
-
-### 11.1 Operations Dashboard
-
-The dashboard displays:
-
-- Total Clients.
-- Total Accounts.
-- Pending Transactions.
-- Processing Transactions.
-- Completed Transactions.
-- Rejected Transactions.
-- Completed CAD Volume.
-- Completed USD Volume.
-- Recent Processing Activity.
-
-The dashboard also displays period-based indicators for new clients, new accounts, and completed transactions.
-
-Dashboard statistics are calculated using MongoDB data.
-
-Completed CAD and USD amounts are displayed separately rather than combined into one monetary value.
-
-### 11.2 Client Management
-
-Available functionality includes:
-
-- Client Directory.
-- Client Registration.
-- Client Details.
-- Client Editing.
-- Client search, filtering, and pagination.
-- Associated account information.
-
-### 11.3 Account Management
-
-Available functionality includes:
-
-- Account Directory.
-- Account Registration.
-- Account Details.
-- Account search, filtering, and pagination.
-- Account status and balance information.
-- Related transaction information.
-
-Account balances reflect completed financial transfers.
-
-### 11.4 Transaction Management
-
-Available functionality includes:
-
-- Transaction Directory.
-- Transaction Creation.
-- Transaction Details.
-- Transaction search, filtering, and pagination.
-- Transaction status information.
-- Processing eligible Pending transactions.
-- Completed transaction outcomes.
-- Rejected transaction codes and reasons.
-
-The Transaction Creation page validates account selection, currency compatibility, amount, and description.
-
-The frontend generates an idempotency key and reuses it when retrying the same submission.
-
-Successful creation navigates to the Transaction Details page.
-
-Legacy and terminal transactions do not provide an active processing action.
-
-Transaction editing and deletion are not part of the implemented financial transaction workflow.
-
-### 11.5 Responsive Interface
-
-The application includes responsive layouts for desktop, tablet, and mobile viewports.
-
-Navigation, forms, tables, and detail pages adjust to different screen sizes.
-
-## 12. Docker Deployment
-
-### 12.1 Containers
-
-The Docker Compose deployment includes:
-
-| Service | Responsibility |
-|---|---|
-| `mongodb` | Persistent MongoDB database |
-| `mongo-init` | MongoDB replica-set initialization |
-| `migrate` | One-time historical JSON migration |
-| `backend` | Express REST API |
-| `frontend` | Next.js application |
-| `nginx` | Reverse proxy and public entry point |
-
-### 12.2 Frontend Container
-
-The frontend Dockerfile uses a multi-stage build.
-
-The build stage installs dependencies and builds the Next.js application.
-
-The runtime stage serves the standalone Next.js production output.
-
-NGINX runs as a separate container and routes requests to the frontend and backend.
-
-### 12.3 Backend Container
-
-The backend container installs production dependencies and starts the Express application.
-
-The backend connects to MongoDB using the internal Docker network.
-
-A health endpoint checks database availability.
-
-### 12.4 MongoDB Replica Set
-
-MongoDB runs as a single-node replica set.
-
-The replica set supports MongoDB multi-document transactions required for atomic financial processing.
-
-MongoDB is not exposed through a public host port by the default Compose configuration.
-
-### 12.5 Persistence
-
-MongoDB uses a named Docker volume.
-
-Application records, financial balances, transaction results, idempotency information, and migration history remain stored after normal container restarts and recreation.
-
-Historical JSON files are used for migration rather than runtime writes.
-
-## 13. Testing and Verification
-
-### 13.1 Dataset Validation
-
-The dataset validation script is located at:
-
-```text
-backend/scripts/validate-data.js
-```
-
-Run it through Docker:
-
-```bash
 docker compose run --rm --no-deps backend npm run validate:data
 ```
 
-This checks the original historical JSON dataset, including:
+`initialize-risk-policies.js`, `initialize-approval-policies.js`, index and validator scripts are internal initialization utilities; do not confuse them with the combined development seed. Schema migration is executed by the Compose `migrate` service.
 
-- Record structure.
-- Required fields.
-- Unique identifiers.
-- Registration numbers.
-- Supported statuses.
-- Currency values.
-- Monetary values.
-- Client-account relationships.
-- Transaction relationships.
-- Dataset consistency.
+## 3. Run all tests
 
-The script validates the historical source data rather than newly created MongoDB records.
+### 3.1 Backend tests (Docker; recommended)
 
-### 13.2 Migration Verification
-
-Run:
+From the project root, after Docker MongoDB is up:
 
 ```bash
+docker compose run --rm --no-deps \
+  -v "$PWD/backend:/app" \
+  -v /app/node_modules \
+  backend npm test
+```
+
+The backend's `npm test` script invokes `node --test --test-concurrency=1 tests/*.test.js`. The bind mount ensures the container executes the **current working tree**, not just the last image build. The anonymous `/app/node_modules` mount preserves container-compatible dependencies. Tests include HTTP integration, client/account constraints, transaction processing and concurrency, risk assessments/cases/policy lifecycle, approval decisions and management, document access, database infrastructure, and workflow-builder behavior.
+
+**Database safety:** the integration helper generates databases named `finops_test_<random>` and verifies their names before setup/cleanup. Inspect the test logs: tests **must not** connect to or drop `finops_enterprise`. Testing performs database writes; use an isolated test environment.
+
+To run a single backend suite:
+
+```bash
+docker compose run --rm --no-deps \
+  -v "$PWD/backend:/app" \
+  -v /app/node_modules \
+  backend node --test tests/risk-policy-lifecycle.integration.test.js
+```
+
+To request Node's experimental coverage report:
+
+```bash
+docker compose run --rm --no-deps \
+  -v "$PWD/backend:/app" \
+  -v /app/node_modules \
+  backend node --test --test-concurrency=1 --experimental-test-coverage tests/*.test.js
+```
+
+### 3.2 Backend tests directly on macOS/Linux
+
+If Node/npm are installed locally, start Docker MongoDB, install backend dependencies, then override the database hostname (which is only resolvable *inside* Docker):
+
+```bash
+docker compose up -d mongodb
+cd backend
+npm ci
+MONGODB_URI='mongodb://127.0.0.1:27017/?replicaSet=rs0&directConnection=true' npm test
+cd ..
+```
+
+This uses the project's MongoDB port mapping `127.0.0.1:27017:27017`. Keep the temporary-database safeguards enabled.
+
+### 3.3 Frontend end-to-end tests (Playwright)
+
+The frontend package defines `test:e2e` and `test:e2e:ui`. The shipped `frontend/playwright.config.ts` starts a Next.js development server on `127.0.0.1:3001` automatically. Run **on the host** with Node/npm installed:
+
+```bash
+cd frontend
+npm ci
+npx playwright install chromium
+npm run test:e2e
+```
+
+For the interactive runner:
+
+```bash
+npm run test:e2e:ui
+```
+
+These tests do **not** run as part of backend `npm test`. If you want to test the already-running Docker/Nginx site on `localhost:8080`, modify Playwright `baseURL` and remove/adjust the `webServer` configuration; the committed configuration targets a separate local dev server on 3001.
+
+### 3.4 Postman/manual API tests
+
+Import `postman/postman.json` if present in your checkout. Set its base URL to **`http://localhost:8080/api/v1`** for the default Compose deployment. Some routes require an actor header, valid resource IDs, idempotency keys, or document bytes. **Do not run a write-heavy collection against production or important demo records.** A broad route collection is not equivalent to a passing automated acceptance test suite.
+
+## 4. Architecture and repository layout
+
+```text
+Browser / Postman
+      |
+      v
+NGINX :8080 (host)
+      |                           |                      +--> Express :3000 (Docker)
+      +--> Next.js :3001           |  routes / controllers / services / repositories
+                                      MongoDB 7 replica set (rs0)
+```
+
+Key directories: `backend/src/routes` (HTTP contracts), `backend/src/controllers` (request processing), `backend/src/services` (business rules), `backend/src/repositories` (MongoDB persistence), `backend/scripts` (migration, initialization and seeds), `backend/tests` (Node tests), `frontend/src/app` (Next.js pages), `frontend/src/components` (UI), `frontend/src/services` (API clients), and `frontend/tests/e2e` (Playwright tests). Nginx proxy configuration is `frontend/nginx.conf`; orchestration is `docker-compose.yml`.
+
+**Stack verified from package files:** Next.js 16.4.0, React 19.3.0, TypeScript, Express 5.2.1, Node ES modules, MongoDB driver 7.x, MongoDB 7, Nginx, Docker Compose, and Playwright.
+
+### Data model and controls
+
+Core `clients`, `accounts`, and `transactions` collections support the directory and transfer workflows. Financial amounts are integer **minor units**: CAD 125.50 is `12550`. Financial processing uses MongoDB transactions to debit and credit atomically. The database also stores risk policies/assessments/cases, workflow definitions, approval decisions, actor records, audit events, balance history and document-related records. Documents use GridFS where implemented.
+
+New transfers are initiated separately from processing; processing validates eligible status, funds, account state and currency, and records `Completed` or `Rejected`. The API also introduces risk classification, approval requirements, reviewer stages, escalation, policy lifecycle, and monitoring/reporting. Legacy migrated records remain distinct from newly initiated transfers.
+
+**Security scope:** the project uses simulated workflow actors and has a demo document-access switch. Do not interpret these controls as production-grade authentication, authorization, encryption governance, or payments compliance. Restrict deployments to trusted development environments unless proper security controls are added.
+
+## 5. REST API — complete mounted route inventory
+
+**Public base:** `http://localhost:8080/api/v1`. Replace `:id` / `:documentId` in the paths with an actual record ID. All paths below are **relative to `/api/v1`**. Routes are listed from `backend/src/routes/index.js` and the mounted route modules in this archive. Some operations are purposefully state-changing; read the request requirements below before calling them.
+
+### /clients (11 routes)
+
+| Method | Endpoint | Operation |
+|---|---|---|
+| `GET` | `/clients` | Retrieve clients |
+| `GET` | `/clients/options` | Retrieve options |
+| `GET` | `/clients/summary` | Retrieve summary |
+| `GET` | `/clients/:id/accounts` | Retrieve accounts |
+| `GET` | `/clients/metrics` | Retrieve metrics |
+| `GET` | `/clients/:id/report` | Retrieve report |
+| `GET` | `/clients/export` | Export client directory |
+| `GET` | `/clients/:id` | Get clients record |
+| `POST` | `/clients` | Create clients record |
+| `PUT` | `/clients/:id` | Update clients record |
+| `PATCH` | `/clients/:id` | Patch clients record |
+
+### /accounts (7 routes)
+
+| Method | Endpoint | Operation |
+|---|---|---|
+| `GET` | `/accounts` | Retrieve accounts |
+| `GET` | `/accounts/options` | Retrieve options |
+| `GET` | `/accounts/with-activity` | Retrieve with activity |
+| `GET` | `/accounts/:id/report` | Retrieve report |
+| `GET` | `/accounts/:id/statement` | Download account statement |
+| `GET` | `/accounts/:id` | Get accounts record |
+| `POST` | `/accounts` | Create accounts record |
+
+### /transactions (13 routes)
+
+| Method | Endpoint | Operation |
+|---|---|---|
+| `GET` | `/transactions` | Retrieve transactions |
+| `GET` | `/transactions/directory` | Retrieve directory |
+| `POST` | `/transactions/preview` | Preview proposed transaction |
+| `GET` | `/transactions/:id/documents` | Retrieve documents |
+| `POST` | `/transactions/:id/documents` | Upload permitted raw document bytes (max 10 MB; demo access guard) |
+| `GET` | `/transactions/:id/documents/:documentId` | Download uploaded document |
+| `DELETE` | `/transactions/:id/documents/:documentId` | Delete documents for transactions |
+| `GET` | `/transactions/history` | Retrieve history |
+| `GET` | `/transactions/:id/document-history` | Retrieve document history |
+| `GET` | `/transactions/:id` | Get transactions record |
+| `GET` | `/transactions/:id/risk-assessment` | Retrieve risk assessment |
+| `POST` | `/transactions` | Initiate transfer; Idempotency-Key header required |
+| `POST` | `/transactions/:id/process` | Process eligible pending transfer |
+
+### /dashboard (2 routes)
+
+| Method | Endpoint | Operation |
+|---|---|---|
+| `GET` | `/dashboard/summary` | Retrieve summary |
+| `GET` | `/dashboard/trend` | Retrieve trend |
+
+### /risk-policies (5 routes)
+
+| Method | Endpoint | Operation |
+|---|---|---|
+| `GET` | `/risk-policies` | Retrieve risk policies |
+| `GET` | `/risk-policies/:id` | Get risk policies record |
+| `POST` | `/risk-policies` | Create risk policies record |
+| `PUT` | `/risk-policies/:id` | Update risk policies record |
+| `POST` | `/risk-policies/:id/activate` | Activate risk policy draft |
+
+### /risk-cases (13 routes)
+
+| Method | Endpoint | Operation |
+|---|---|---|
+| `GET` | `/risk-cases/summary` | Retrieve summary |
+| `GET` | `/risk-cases` | Retrieve risk cases |
+| `POST` | `/risk-cases` | Create risk cases record |
+| `GET` | `/risk-cases/:id` | Get risk cases record |
+| `PATCH` | `/risk-cases/:id` | Patch risk cases record |
+| `POST` | `/risk-cases/:id/resolve` | Resolve risk case |
+| `GET` | `/risk-cases/:id/events` | Retrieve events |
+| `POST` | `/risk-cases/:id/notes` | Add note to risk case |
+| `GET` | `/risk-cases/:id/triggers` | Retrieve triggers |
+| `GET` | `/risk-cases/:id/documents` | Retrieve documents |
+| `POST` | `/risk-cases/:id/documents` | Upload supporting document to risk case |
+| `GET` | `/risk-cases/:id/documents/:documentId` | Get documents for risk cases |
+| `DELETE` | `/risk-cases/:id/documents/:documentId` | Delete documents for risk cases |
+
+### /approval-workflows (5 routes)
+
+| Method | Endpoint | Operation |
+|---|---|---|
+| `GET` | `/approval-workflows` | Retrieve approval workflows |
+| `GET` | `/approval-workflows/:id` | Get approval workflows record |
+| `GET` | `/approval-workflows/:id/decisions` | Retrieve decisions |
+| `POST` | `/approval-workflows/:id/decisions` | Submit approval decision for workflow |
+| `POST` | `/approval-workflows/:id/escalate` | Escalate approval workflow |
+
+### /approval-workflow-definitions (9 routes)
+
+| Method | Endpoint | Operation |
+|---|---|---|
+| `GET` | `/approval-workflow-definitions/summary` | Retrieve summary |
+| `GET` | `/approval-workflow-definitions` | Retrieve approval workflow definitions |
+| `GET` | `/approval-workflow-definitions/:id/audit` | Retrieve audit |
+| `GET` | `/approval-workflow-definitions/:id` | Get approval workflow definitions record |
+| `POST` | `/approval-workflow-definitions` | Create approval workflow definitions record |
+| `PUT` | `/approval-workflow-definitions/:id` | Update approval workflow definitions record |
+| `POST` | `/approval-workflow-definitions/:id/duplicate` | Duplicate workflow definition |
+| `POST` | `/approval-workflow-definitions/:id/status` | Change workflow definition status |
+| `DELETE` | `/approval-workflow-definitions/:id` | Delete approval workflow definitions record |
+
+### /approval-workflow-clones (1 route)
+
+| Method | Endpoint | Operation |
+|---|---|---|
+| `POST` | `/approval-workflow-clones/:id` | Clone selected workflow definition |
+
+### /approval-workflow-definition-details (6 routes)
+
+| Method | Endpoint | Operation |
+|---|---|---|
+| `GET` | `/approval-workflow-definition-details/actors` | Retrieve actors |
+| `GET` | `/approval-workflow-definition-details/:id` | Get approval workflow definition details record |
+| `PUT` | `/approval-workflow-definition-details/:id/stages` | Update stages |
+| `PUT` | `/approval-workflow-definition-details/:id/conditions` | Update conditions |
+| `PUT` | `/approval-workflow-definition-details/:id/assignments` | Update assignments |
+| `PUT` | `/approval-workflow-definition-details/:id/sla` | Update sla |
+
+### /approval-workflow-sla (2 routes)
+
+| Method | Endpoint | Operation |
+|---|---|---|
+| `GET` | `/approval-workflow-sla/:id/metrics` | Retrieve metrics |
+| `PUT` | `/approval-workflow-sla/:id` | Update approval workflow sla record |
+
+### /workflow-actors (1 route)
+
+| Method | Endpoint | Operation |
+|---|---|---|
+| `GET` | `/workflow-actors` | Retrieve workflow actors |
+
+### /risk-assessments (6 routes)
+
+| Method | Endpoint | Operation |
+|---|---|---|
+| `GET` | `/risk-assessments` | Retrieve risk assessments |
+| `GET` | `/risk-assessments/overview` | Retrieve overview |
+| `GET` | `/risk-assessments/alerts` | Retrieve alerts |
+| `GET` | `/risk-assessments/dashboard` | Retrieve dashboard |
+| `GET` | `/risk-assessments/analytics` | Retrieve analytics |
+| `GET` | `/risk-assessments/:id` | Get risk assessments record |
+
+### /risk (1 route)
+
+| Method | Endpoint | Operation |
+|---|---|---|
+| `GET` | `/risk/dashboard` | Retrieve dashboard |
+
+### /approvals (3 routes)
+
+| Method | Endpoint | Operation |
+|---|---|---|
+| `GET` | `/approvals/dashboard` | Retrieve dashboard |
+| `GET` | `/approvals/queue` | Retrieve queue |
+| `GET` | `/approvals/overview` | Retrieve overview |
+
+### /approval-workflow-builders (6 routes)
+
+| Method | Endpoint | Operation |
+|---|---|---|
+| `POST` | `/approval-workflow-builders/drafts` | Create approval workflow builders draft |
+| `GET` | `/approval-workflow-builders/drafts/:id` | Get approval workflow builders record |
+| `PUT` | `/approval-workflow-builders/drafts/:id` | Update approval workflow builders record |
+| `POST` | `/approval-workflow-builders/drafts/:id/complete` | Complete workflow builder draft |
+| `DELETE` | `/approval-workflow-builders/drafts/:id` | Delete approval workflow builders record |
+| `POST` | `/approval-workflow-builders` | Create approval workflow builders record |
+
+### /approval-decision-history (1 route)
+
+| Method | Endpoint | Operation |
+|---|---|---|
+| `GET` | `/approval-decision-history` | Retrieve approval decision history |
+
+### /approval-audit-trail (1 route)
+
+| Method | Endpoint | Operation |
+|---|---|---|
+| `GET` | `/approval-audit-trail` | Retrieve approval audit trail |
+
+### /approval-policy-management (3 routes)
+
+| Method | Endpoint | Operation |
+|---|---|---|
+| `GET` | `/approval-policy-management` | Retrieve approval policy management |
+| `GET` | `/approval-policy-management/:id` | Get approval policy management record |
+| `POST` | `/approval-policy-management/drafts` | Create approval policy management draft |
+
+### /approval-policy-wizard (5 routes)
+
+| Method | Endpoint | Operation |
+|---|---|---|
+| `GET` | `/approval-policy-wizard/workflows` | Retrieve workflows |
+| `GET` | `/approval-policy-wizard/:id` | Get approval policy wizard record |
+| `POST` | `/approval-policy-wizard` | Create approval policy wizard record |
+| `PUT` | `/approval-policy-wizard/:id` | Update approval policy wizard record |
+| `DELETE` | `/approval-policy-wizard/:id` | Delete approval policy wizard record |
+
+### /health (1 route)
+
+| Method | Endpoint | Operation |
+|---|---|---|
+| `GET` | `/health` | Application/database readiness |
+
+### Request examples and important headers
+
+**Create client** (`POST /clients`), example fields: `companyName`, `registrationNumber`, `industry`, `country`, `contactEmail`, `contactPhone`; use the valid option values exposed by `GET /clients/options`. **Create account** (`POST /accounts`) requires an eligible `clientId`, account information and currency; obtain options from `GET /accounts/options`. For edit operations, consult server validation and the corresponding frontend forms for the allowed fields.
+
+**Initiate a transfer:**
+
+```http
+POST /api/v1/transactions
+Content-Type: application/json
+Idempotency-Key: sample-transfer-unique-001
+```
+
+```json
+{
+  "sourceAccountId": "<existing-source-account-id>",
+  "destinationAccountId": "<existing-destination-account-id>",
+  "amountMinor": 25000,
+  "currency": "CAD",
+  "description": "Test transfer"
+}
+```
+
+Account IDs must exist, be compatible, and differ from each other. New initiation returns a Pending transaction. `POST /transactions/:id/process` then attempts processing. Replaying an idempotency key with a different payload can return `409`. Only process a record in an appropriate state.
+
+**Risk policy management:** creation, editing and activation are protected by **simulated** policy administrator checking. Supply `X-Actor-Id: ACTOR-POLICY-001` only after seeding a matching active `PolicyAdministrator` actor, or create an authorized test actor in a disposable database. Identifiers follow the backend's risk-policy validation rules. Policies support drafts and versioning; activated historical versions are preserved.
+
+**Approvals:** the workflow decision route expects an eligible reviewer actor in the correct stage. For seeded examples, actors include `ACTOR-OPERATIONS-001`, `ACTOR-SENIOR-001`, and `ACTOR-COMPLIANCE-001`; approvals and escalation may change workflow or transaction state. Workflow builders, definition details, SLA routes, and policy wizard each accept **different** JSON schemas; consult their route module before submitting create/update payloads, rather than reusing a body from another policy route.
+
+**Transaction document upload:** `POST /transactions/:id/documents` accepts **raw binary request bodies**, not ordinary JSON or multipart form data. Supported content types in its parser are PDF, PNG, JPEG, DOCX, XLSX, DOC, and XLS; its request-body limit is **10 MB**. Download and delete use the stored document ID. The shipped Docker backend currently sets `ENABLE_DEMO_DOCUMENT_ACCESS=true`; the integration helper disables it. This flag is **demo-only** and should not be exposed to untrusted users.
+
+**Response codes:** reads and successful actions commonly return `200`, creations `201`, deletion `204`, validation `400`, missing resource `404`, state/uniqueness conflict `409`, and infrastructure errors `5xx` (for example `503` health failure). Exact status and JSON shape depend on route and operation. Error responses generally have an `error` object with `code`, `message`, and `details`.
+
+## 6. Migration and persistence
+
+The Compose `migrate` service invokes these commands in order:
+
+```bash
+node scripts/migrate-json-to-mongodb.js
+node scripts/migrate-schema.js
+```
+
+The first imports the legacy JSON dataset, and the second applies current schema changes. A failed migration blocks the backend startup. Verify historical migration with:
+
+```bash
+docker compose logs migrate --tail=100
 docker compose run --rm --no-deps backend node scripts/verify-migration.js
 ```
 
-This checks the migration record and compares historical source records with the migrated MongoDB documents.
+The seed is **separate** from the migration. Normal Compose restarts preserve the named `mongodb_data` volume and should not be used as a database reset. Never remove that volume casually, particularly after using the application for transactions or workflow reviews.
 
-### 13.3 Automated Backend Tests
+## 7. Troubleshooting
 
-Automated tests are located in:
-
-```text
-backend/tests/
-```
-
-The test files include:
-
-- `migration.test.js`
-- `repository.test.js`
-- `transaction-processing.test.js`
-- `integration.test.js`
-- `concurrency.test.js`
-
-Run the backend test suite:
-
-```bash
-docker compose run --rm --no-deps backend npm test
-```
-
-The tests cover database behavior, migration, financial transaction processing, integration behavior, and concurrency scenarios.
-
-### 13.4 Postman API Tests
-
-The Postman collection is located at:
-
-```text
-postman/postman.json
-```
-
-To run the collection:
-
-1. Start the application through Docker Compose.
-2. Open Postman.
-3. Import `postman/postman.json`.
-4. Confirm that `baseUrl` is `http://localhost:8080/api/v1`.
-5. Run the collection folders in their intended order.
-
-The collection includes tests for API behavior, validation, transaction initiation, processing outcomes, and relevant error responses.
-
-The ordered acceptance suite creates test records and performs financial transfers, so it modifies the connected database.
-
-Use a disposable development or testing database when running state-changing tests.
-
-Some scenarios, including container restarts, database outages, and concurrent processing, require separate manual or automated verification outside the Postman collection.
-
-### 13.5 Frontend Verification
-
-Frontend verification should include:
-
-- Navigation between application pages.
-- Client registration and editing.
-- Account registration.
-- Search, filtering, and pagination.
-- Transaction initiation.
-- Form validation.
-- Pending transaction processing.
-- Completed transaction details.
-- Rejected transaction details.
-- Loading and error states.
-- Responsive layouts.
-- Handling unavailable backend services.
-
-Screenshots of application pages are stored in:
-
-```text
-screenshots/
-```
-
-### 13.6 Persistence Verification
-
-A persistence test can be performed by:
-
-1. Starting the application.
-2. Registering a client or initiating a new transaction.
-3. Verifying that the record appears in the application.
-4. Stopping the containers without deleting volumes.
-5. Starting the application again.
-6. Confirming that the record remains available.
-
-For completed transfers, the account balances and transaction status should also remain unchanged after restart.
-
-## 14. Technical Reflection
-
-### 14.1 How does the layered Express.js architecture separate HTTP handling, business rules and persistent storage? What happens if business logic is placed directly inside route handlers?
-
-The backend separates routes, controllers, services, and repositories. For example, `backend/src/routes/client.routes.js` declares client endpoints, `client.controller.js` translates requests and service results into HTTP responses, `client.service.js` validates client information and applies business rules, and `client.repository.js` accesses persisted records through MongoDB. Similarly, `account.service.js` checks whether the selected client exists and is Active before allowing account creation. Transaction processing follows the same architecture, with the processing service enforcing business rules and repositories performing database operations.
-
-If validation and storage logic were placed directly inside route handlers, the route files would become longer, harder to test, and more tightly coupled to the database implementation. Shared rules could be duplicated between endpoints and become inconsistent. Keeping the layers separate makes it easier to locate bugs, reuse functionality, and modify the persistence mechanism without changing the entire application.
-
-### 14.2 What problems can occur when multiple asynchronous operations attempt to update the same JSON file? How does the application prevent lost updates?
-
-In Assignment 1, without coordination, two requests could read the same version of `clients.json`, each append a client, and then write their own version. The last write could overwrite the first, losing a registration. The shared `json.repository.js` used a `Map` of per-file promise queues through `withFileLock()`. The `updateJsonFile()` function waited for earlier operations on the same file, read the latest data, applied and validated the update, wrote to a temporary file, and renamed it over the original. Duplicate registration checks also occurred inside the queued operation so they used current data.
-
-This approach prevented common overlapping read-modify-write problems within one server process, but it did not coordinate independent server processes or make changes across multiple files atomic.
-
-In Assignment 2, the JSON repositories were replaced with MongoDB repositories. The application now relies on database operations, uniqueness constraints, conditional updates, and MongoDB transactions for consistency. Financial transfer processing uses a MongoDB session and transaction so updates to both accounts and the transaction outcome are coordinated. This provides stronger protection against lost updates and partially completed financial operations.
-
-### 14.3 Why are financial amounts represented using integer minor units instead of floating-point values? How are amounts validated and formatted?
-
-JavaScript floating-point arithmetic cannot represent every decimal amount exactly; for example, `0.1 + 0.2` does not equal exactly `0.3`. To avoid introducing these precision issues into stored balances, the project saves amounts in cents as integers, such as `12550` for CAD 125.50.
-
-The backend validates monetary values as safe integers. Account balances must be non-negative, while initiated transfer amounts must be positive. The backend also checks that financial calculations remain within the supported integer range before updating account balances.
-
-The frontend accepts monetary input with up to two decimal places and converts it into integer minor units before sending the request. Currency values are formatted for display using the appropriate currency formatting utilities. The stored financial amounts remain integer values even though users see decimal currency amounts.
-
-This representation is especially important in Assignment 2 because completed financial transfers must debit and credit the exact same amount without introducing floating-point rounding errors.
-
-### 14.4 How does React handle asynchronous requests, loading states, failed operations, form validation, and duplicate submissions?
-
-Frontend API calls are organized under `frontend/src/services/`, while components manage UI state with React hooks. For example, the client registration form maintains form values, validation errors, loading state, and success feedback. It retrieves available form options from the backend so the frontend does not maintain a separate hardcoded list.
-
-The components validate required values, email formatting, lengths, and selected options before sending requests. During submission, loading states show progress and disable submit buttons to prevent normal repeated clicks. Asynchronous requests use `try/catch/finally`: successful operations show feedback or navigate to the resulting record, failures display error messages, and the final step resets the loading state. Backend validation still provides the final protection, even when frontend validation passes.
-
-Assignment 2 extends this behavior to transaction initiation and processing. The Transaction Creation page validates the selected accounts, currency compatibility, transfer amount, and description. It also generates an idempotency key for each new transaction submission and reuses that key when retrying the same submission. The backend stores idempotency information in MongoDB to prevent duplicate transactions even if a request is repeated or the backend restarts.
-
-Maintaining consistency between frontend validation, backend rules, and transaction processing outcomes remains an important implementation concern.
-
-### 14.5 How would the architecture support transaction processing and approval workflows in Assignment 2?
-
-Assignment 2 extends the existing layered architecture by implementing transaction creation and financial processing. The application now includes transaction initiation and processing endpoints, a Transaction Creation page, and processing controls in the Transaction Details page.
-
-The transaction service validates source and destination accounts, account currencies, monetary amounts, and idempotency information. Newly created transactions are stored with Pending status. The processing service then validates account availability, sufficient funds, allowed status transitions, and financial conditions before completing or rejecting the transfer.
-
-The JSON-based storage from Assignment 1 was replaced with MongoDB because the original per-file locking approach could not guarantee atomic changes across account balances and transaction records. MongoDB multi-document transactions now coordinate financial updates within the same database session. The processing logic also uses conditional updates to protect against duplicate execution and concurrent changes.
-
-The implemented workflow distinguishes between initiating a transaction and executing it. Processing may temporarily move the transaction to Processing before reaching Completed or Rejected. Completed transactions update both balances, while Rejected transactions preserve the balances and record the rejection reason.
-
-A separate approval workflow with authentication, authorization, approver roles, and approval history is not part of the current implementation. Such functionality could be introduced later through additional routes, services, repositories, and frontend pages while maintaining the existing layered architecture.
-
-## 15. ChatGPT Use Acknowledgement
-
-ChatGPT was used as a development assistance tool for the following tasks:
-
-| Use Case | Description |
+| Symptom | Check and remedy |
 |---|---|
-| UI styling | CSS styling |
-| Postman | Generated `postman/postman.json` |
-| Dataset validation | Generated `backend/scripts/*` |
-| File organization | Assisted with organizing project files and directories |
-| README generation | Generated README documentation |
-| Technical Reflection editing | Used only to correct grammar and vocabulary in the Technical Reflection section; the answers describe the project's implementation and development decisions |
+| `curl localhost:3000` refuses connection | Expected with supplied Compose. Use `localhost:8080/api/v1`; only Nginx is host-published for HTTP. |
+| `502 Bad Gateway` on `localhost:8080` | `docker compose ps`; inspect `backend`, `frontend`, and `nginx` logs. |
+| `getaddrinfo ENOTFOUND mongodb` from local `npm test` | Docker hostname cannot resolve on the host. Use Docker test command or host URI `127.0.0.1:27017` with `directConnection=true`. |
+| MongoDB transactions fail | Confirm single-node replica set is healthy and `migrate` completed. |
+| Seed refuses to run | Set both `NODE_ENV=development` and `ALLOW_ALL_DEMO_SEEDS=1` **on the seed command**, not in the production Compose environment. |
+| Tests use `finops_enterprise` | **Stop immediately**; verify `backend/tests/helpers/integration.js` creates and verifies `finops_test_...` before any database writes or cleanup. |
+| Playwright cannot find a server | Its committed config starts a local frontend on 3001. Run `npm ci` and execute Playwright from `frontend/`; check that port 3001 is free. |
+| Postman collection runner reports an unexpected error | First try `curl -i http://localhost:8080/api/v1/health`, then run one GET in Postman. Populate valid IDs, headers and request bodies before running mutation requests. |
+| Port 8080 already in use | Change `FRONTEND_PORT` and `CORS_ORIGIN` in `.env`, then recreate affected services. |
+
+## 8. Development and test coverage notes
+
+Backend integration suites cover account/client validation, transaction handling, concurrent processing and idempotency, risk assessment and policy lifecycle, risk cases, approval execution/management and workflow builder behavior. Frontend Playwright tests cover navigation and selected page-level behavior; they are **not** a substitute for complete user-flow functional coverage. Continue testing document upload/download, administrative policy configuration, reporting totals, error handling, and failure recovery with isolated data. Do not equate a passing test count with proof of complete coverage.
+
+## 9. Development-assistance acknowledgement
+
+ChatGPT was used as a development aid for UI styling, tests, API/Postman tooling, documentation, and script/design review.
+

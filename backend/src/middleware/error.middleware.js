@@ -52,15 +52,13 @@ export default function errorMiddleware(err, req, res, next) {
             503: "SERVICE_UNAVAILABLE"
         };
 
-        if (statusCode === 503) {
-            code = "SERVICE_UNAVAILABLE";
-            message = "Database service unavailable";
-        } else if (statusCode !== 500) {
+
+        if (statusCode !== 500) {
             code =
                 typeof err.code === "string"
                     ? err.code
                     : defaultCodes[statusCode] ??
-                      "REQUEST_FAILED";
+                    "REQUEST_FAILED";
 
             message =
                 typeof err.message === "string"
@@ -73,6 +71,7 @@ export default function errorMiddleware(err, req, res, next) {
                     ? [err.details]
                     : [];
         }
+
     }
 
     res.status(statusCode).json({

@@ -7,30 +7,16 @@ services:
       - "127.0.0.1:27017:27017"
     volumes:
       - mongodb_data:/data/db
+      - ./mongodb/replica-set-init/healthcheck.sh:/replica-healthcheck.sh:ro
     healthcheck:
       test:
         - CMD
-        - mongosh
-        - --quiet
-        - --eval
-        - "if (db.adminCommand('ping').ok !== 1) quit(1)"
+        - sh
+        - /replica-healthcheck.sh
       interval: 5s
       timeout: 5s
       retries: 20
       start_period: 10s
-    networks:
-      - finops_network
-
-
-  mongo-init:
-    image: mongo:7
-    depends_on:
-      mongodb:
-        condition: service_healthy
-    volumes:
-      - ./mongodb/replica-set-init/init.sh:/init.sh:ro
-    entrypoint: ["sh", "/init.sh"]
-    restart: "no"
     networks:
       - finops_network
 
@@ -41,13 +27,19 @@ services:
       NODE_ENV: ${NODE_ENV:-production}
       MONGODB_URI: ${MONGODB_URI:-mongodb://mongodb:27017/finops_enterprise?replicaSet=rs0}
       MONGODB_DATABASE: ${MONGODB_DATABASE:-finops_enterprise}
-    command: ["node", "scripts/migrate-json-to-mongodb.js"]
+    command:
+      - sh
+      - -c
+      - |
+        node scripts/migrate-json-to-mongodb.js &&
+        node scripts/migrate-schema.js
     depends_on:
-      mongo-init:
-        condition: service_completed_successfully
+      mongodb:
+        condition: service_healthy
     restart: "no"
     networks:
       - finops_network
+
 
   backend:
     build:
@@ -56,9 +48,11 @@ services:
     environment:
       PORT: ${PORT:-3000}
       NODE_ENV: ${NODE_ENV:-production}
+      ENABLE_DEMO_DOCUMENT_ACCESS: "true"
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:8080}
       MONGODB_URI: ${MONGODB_URI:-mongodb://mongodb:27017/finops_enterprise?replicaSet=rs0}
       MONGODB_DATABASE: ${MONGODB_DATABASE:-finops_enterprise}
+
     depends_on:
       migrate:
         condition: service_completed_successfully

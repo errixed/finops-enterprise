@@ -3,7 +3,8 @@ import {
     getDashboardGrowthStatistics,
     findRecentTransactions,
     findRecentProcessingActivity,
-    findDashboardAccounts
+    findDashboardAccounts,
+    getDashboardTrend
 } from "../repositories/dashboard.repository.js";
 import {
     checkDatabaseConnection,
@@ -151,4 +152,7 @@ export async function checkApplicationHealth() {
         status: "ok",
         timestamp: new Date().toISOString()
     };
+}
+export async function getOperationsTrend(days = 30) {
+    return getDashboardTrend(days);
 }

@@ -1,4 +1,5 @@
 import "./globals.css";
+import "../styles/design-system.css";
 import AppShell from "@/components/layout/AppShell";
 
 export default function RootLayout({

@@ -1,14 +1,10 @@
 import ClientForm from "@/components/forms/ClientForm";
+import "../client-profile.css";
 
 export default function RegisterClientPage() {
-    return (
-        <section className="client-registration-page">
-            <div className="client-registration-heading">
-                <h1>Register Corporate Client</h1>
-                <p>Enter the client's corporate information</p>
-            </div>
-
-            <ClientForm />
-        </section>
-    );
+  return (
+    <section className="cp-page cc-create-page">
+      <ClientForm />
+    </section>
+  );
 }

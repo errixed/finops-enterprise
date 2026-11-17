@@ -12,6 +12,33 @@ import {
     randomUUID,
     createHash
 } from "node:crypto";
+import {
+    getMongoClient
+} from "../config/mongodb.js";
+
+import {
+    findActiveRiskPolicy
+} from "../repositories/risk-policy.repository.js";
+
+import {
+    buildRiskContext
+} from "./risk-context.service.js";
+
+import {
+    evaluateTransactionRisk
+} from "./risk-assessment.service.js";
+
+import {
+    recordRiskAssessment
+} from "./risk-assessment-document.service.js";
+
+import {
+    resolveApprovalPolicy
+} from "./approval-policy.service.js";
+
+import {
+    initializeApprovalWorkflow
+} from "./approval-workflow.service.js";
 
 const STATUSES = ENUMS.TRANSACTION_STATUSES;
 
@@ -335,70 +362,182 @@ export async function initiateTransaction(input, idempotencyKey) {
         return resolveExistingTransaction(existing, fingerprint);
     }
 
-    const [sourceAccount, destinationAccount] = await Promise.all([
-        findAccountById(payload.sourceAccountId),
-        findAccountById(payload.destinationAccountId)
-    ]);
-
-    if (!sourceAccount) {
-        fail(
-            "Source account not found",
-            404,
-            "sourceAccountId"
-        );
-    }
-
-    if (!destinationAccount) {
-        fail(
-            "Destination account not found",
-            404,
-            "destinationAccountId"
-        );
-    }
-
-    if (sourceAccount.currency !== destinationAccount.currency) {
-        fail(
-            "Source and destination account currencies must match",
-            400,
-            "currency"
-        );
-    }
-
-    if (payload.currency !== sourceAccount.currency) {
-        fail(
-            "Transaction currency must match both accounts",
-            400,
-            "currency"
-        );
-    }
-
-    const now = new Date().toISOString();
-    const transactionId = randomUUID();
-
-    const transaction = {
-        transactionId,
-        referenceNumber: `TXN-${transactionId.toUpperCase()}`,
-        idempotencyKey: key,
-        requestFingerprint: fingerprint,
-        ...payload,
-        transactionType: "Transfer",
-        status: "Pending",
-        isLegacy: false,
-        rejectionCode: null,
-        rejectionReason: null,
-        createdAt: now,
-        updatedAt: now,
-        processedAt: null
-    };
+    const session = getMongoClient().startSession();
 
     try {
-        const createdTransaction =
-            await insertPendingTransaction(transaction);
+        const result = await session.withTransaction(async () => {
+            const repeated = await findTransactionByIdempotencyKey(
+                key,
+                { session }
+            );
 
-        return {
-            transaction: createdTransaction,
-            created: true
-        };
+            if (repeated) {
+                return resolveExistingTransaction(
+                    repeated,
+                    fingerprint
+                );
+            }
+
+            const sourceAccount = await findAccountById(
+                payload.sourceAccountId,
+                { session }
+            );
+
+            const destinationAccount = await findAccountById(
+                payload.destinationAccountId,
+                { session }
+            );
+
+            if (!sourceAccount) {
+                fail(
+                    "Source account not found",
+                    404,
+                    "sourceAccountId"
+                );
+            }
+
+            if (!destinationAccount) {
+                fail(
+                    "Destination account not found",
+                    404,
+                    "destinationAccountId"
+                );
+            }
+
+            if (
+                sourceAccount.currency !==
+                destinationAccount.currency
+            ) {
+                fail(
+                    "Source and destination account currencies must match",
+                    400,
+                    "currency"
+                );
+            }
+
+            if (
+                payload.currency !== sourceAccount.currency
+            ) {
+                fail(
+                    "Transaction currency must match both accounts",
+                    400,
+                    "currency"
+                );
+            }
+
+            const riskPolicy = await findActiveRiskPolicy(
+                payload.currency,
+                session
+            );
+
+
+            if (!riskPolicy) {
+                const error = new Error(
+                    "No active risk policy is available"
+                );
+
+                error.statusCode = 503;
+                error.code = "RISK_POLICY_UNAVAILABLE";
+                error.details = [
+                    {
+                        field: "riskPolicy",
+                        message: "No active risk policy exists for this currency."
+                    }
+                ];
+
+                throw error;
+            }
+
+
+            const now = new Date();
+            const transactionId = randomUUID();
+
+            const context = await buildRiskContext({
+                sourceAccountId: payload.sourceAccountId,
+                destinationAccountId: payload.destinationAccountId,
+                amountMinor: payload.amountMinor,
+                currency: payload.currency,
+                periodHours: 24,
+                asOf: now,
+                session
+            });
+
+            const riskResult = evaluateTransactionRisk(
+                context,
+                riskPolicy
+            );
+
+            const approvalPolicy = await resolveApprovalPolicy(
+                riskResult.riskLevel,
+                session
+            );
+
+            if (
+                approvalPolicy.approvalRequired !==
+                riskResult.approvalRequired
+            ) {
+                fail(
+                    "Risk assessment and approval policy are inconsistent",
+                    409
+                );
+            }
+
+            const assessment = await recordRiskAssessment({
+                transactionId,
+                result: riskResult,
+                policy: riskPolicy,
+                session,
+                assessedAt: now
+            });
+
+            const workflow = await initializeApprovalWorkflow({
+                transactionId,
+                assessmentId: assessment.assessmentId,
+                approvalPolicy,
+                session
+            });
+
+            const transaction = {
+                transactionId,
+                referenceNumber:
+                    `TXN-${transactionId.toUpperCase()}`,
+                idempotencyKey: key,
+                requestFingerprint: fingerprint,
+                ...payload,
+                transactionType: "Transfer",
+                status: "Pending",
+                isLegacy: false,
+                rejectionCode: null,
+                rejectionReason: null,
+                createdAt: now.toISOString(),
+                updatedAt: now.toISOString(),
+                processedAt: null,
+                riskAssessmentId: assessment.assessmentId,
+                riskScore: riskResult.riskScore,
+                riskLevel: riskResult.riskLevel,
+                approvalRequired:
+                    approvalPolicy.approvalRequired,
+                approvalWorkflowId: workflow.workflowId,
+                approvalStatus: workflow.approvalStatus
+            };
+
+            const createdTransaction =
+                await insertPendingTransaction(
+                    transaction,
+                    session
+                );
+
+            return {
+                transaction: createdTransaction,
+                created: true
+            };
+        }, {
+            readConcern: { level: "snapshot" },
+            writeConcern: { w: "majority" },
+            readPreference: "primary"
+        });
+
+        return result;
     } catch (error) {
         if (error.code === 11000) {
             const conflictingTransaction =
@@ -418,6 +557,8 @@ export async function initiateTransaction(input, idempotencyKey) {
         }
 
         throw error;
+    } finally {
+        await session.endSession();
     }
 }
 
