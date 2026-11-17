@@ -476,5 +476,5 @@ Backend integration suites cover account/client validation, transaction handling
 
 ## 9. Development-assistance acknowledgement
 
-ChatGPT was used as a development aid for UI styling, tests, API/Postman tooling, documentation, and script/design review. The implementation and source code remain the authoritative reference for actual behavior.
+ChatGPT was used as a development aid for UI styling, tests, API/Postman tooling, documentation, and script/design review.
 
