@@ -17,6 +17,7 @@ git clone https://github.com/errixed/finops-enterprise.git
 cd finops-enterprise
 cp .env.example .env
 ```
+For Windows users `cp` command is only available on Windows PowerShell console.
 
 The default `.env.example` contains:
 
