@@ -1,0 +1,77 @@
+.abt-container {
+    width: 100%;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    padding: 5px;
+}
+
+.abt-container svg {
+    display: block;
+    width: 100%;
+    height: auto;
+    max-height: 235px;
+}
+
+.abt-caption {
+    font-size: 10px;
+    color: #5e7694;
+    text-align: center;
+}
+
+.abt-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 175px;
+    padding: 20px;
+    color: #71839e;
+    font-size: 12px;
+    text-align: center;
+}
+
+.abt-container {
+  width: 100%;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.abt-container svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.abt-axis-text {
+  fill: #182b4c;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.abt-month-text {
+  fill: #132b51;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.abt-caption {
+  margin: 0 0 3px;
+  text-align: center;
+  color: #7185a0;
+  font-size: 10px;
+}
+
+.abt-empty {
+  min-height: 215px;
+  padding: 20px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  color: #6b819b;
+  text-align: center;
+  font-size: 13px;
+}

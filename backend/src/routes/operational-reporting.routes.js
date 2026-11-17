@@ -8,7 +8,9 @@ import {
 
 export const riskReportingRouter = express.Router();
 export const approvalReportingRouter = express.Router();
-
+import {
+    getApprovalOverview
+} from "../controllers/approval-overview.controller.js";
 riskReportingRouter.get(
     "/dashboard",
     getRiskDashboardReport
@@ -22,4 +24,8 @@ approvalReportingRouter.get(
 approvalReportingRouter.get(
     "/queue",
     getApprovalQueueReport
+);
+approvalReportingRouter.get(
+    "/overview",
+    getApprovalOverview
 );

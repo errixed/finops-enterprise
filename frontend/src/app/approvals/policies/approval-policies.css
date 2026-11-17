@@ -1,0 +1,625 @@
+
+.apol-page {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  width: 100%;
+  min-width: 0;
+  color: #102d71;
+  font-size: 12px;
+}
+
+.apol-page,
+.apol-page * {
+  box-sizing: border-box;
+}
+
+.apol-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.apol-breadcrumb a {
+  color: #164b9d;
+  text-decoration: none;
+}
+
+.apol-heading,
+.apol-heading-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.apol-heading {
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+.apol-heading-text {
+  flex: 1 1 500px;
+  min-width: 0;
+}
+
+.apol-heading-text h1 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  color: #0a2c7d;
+  font-size: clamp(23px, 2vw, 30px);
+  font-weight: 900;
+}
+
+.apol-heading-text h1 svg {
+  color: #0752df;
+  flex-shrink: 0;
+}
+
+.apol-heading-text p {
+  margin: 7px 0 0;
+  color: #294d86;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.apol-primary,
+.apol-outline,
+.apol-export button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 39px;
+  padding: 8px 15px;
+  border: 1px solid #0753d9;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.apol-primary {
+  color: white;
+  background: linear-gradient(#1583ff, #0739d5);
+}
+
+.apol-outline,
+.apol-export button {
+  background: white;
+  color: #0f49c7;
+}
+
+.apol-export {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.apol-export select {
+  width: 72px;
+  min-height: 39px;
+  padding: 8px 5px;
+  border: 1px solid #aac6f2;
+  border-radius: 8px;
+  color: #1346a4;
+  background: white;
+}
+
+.apol-export button {
+  border-color: #aac6f2;
+}
+
+.apol-metrics {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.apol-metric {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+  min-height: 76px;
+  padding: 12px 16px;
+  border: 1px solid #a9c7f9;
+  border-radius: 12px;
+  background: linear-gradient(#fff, #f3f7ff);
+}
+
+.apol-metric-icon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 44px;
+  height: 44px;
+}
+
+.apol-metric-icon.blue { color: #0a51dc; }
+.apol-metric-icon.green { color: #098c37; }
+.apol-metric-icon.cyan { color: #1260e5; }
+.apol-metric-icon.amber { color: #efa000; }
+.apol-metric-icon.gray { color: #435a78; }
+
+.apol-metric > div:last-child {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.apol-metric strong {
+  font-size: 12px;
+  font-weight: 850;
+  color: #143877;
+}
+
+.apol-metric b {
+  font-size: 25px;
+  line-height: 1;
+  font-weight: 950;
+  color: #092e7e;
+}
+
+.apol-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1.08fr) minmax(0, .95fr);
+  align-items: start;
+  gap: 14px;
+  min-width: 0;
+}
+
+.apol-panel,
+.apol-details {
+  min-width: 0;
+}
+
+.apol-panel {
+  border: 1px solid #abc6f5;
+  background: #fff;
+  padding: 13px 11px;
+  border-radius: 12px;
+}
+
+.apol-panel-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 15px;
+  padding: 0 8px;
+}
+
+.apol-panel-heading h2 {
+  display: flex;
+  gap: 9px;
+  align-items: center;
+  margin: 0;
+  color: #0c3695;
+  font-size: 18px;
+  font-weight: 900;
+}
+
+.apol-searchbar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 16px;
+  padding: 0 2px;
+}
+
+.apol-search,
+.apol-status-filter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 39px;
+  border: 1px solid #a9c5f4;
+  border-radius: 9px;
+  padding: 0 10px;
+  color: #0753c9;
+  background: white;
+}
+
+.apol-search {
+  flex: 1;
+  min-width: 0;
+}
+
+.apol-search input {
+  width: 100%;
+  min-width: 0;
+  padding: 7px 0;
+  border: 0;
+  outline: none;
+  font: inherit;
+  color: #143778;
+}
+
+.apol-status-filter select {
+  min-width: 120px;
+  border: 0;
+  padding: 7px 0;
+  font: inherit;
+  color: #123981;
+  background: transparent;
+}
+
+.apol-table-scroll {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.apol-directory-table,
+.apol-small-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+}
+
+.apol-directory-table {
+  min-width: 570px;
+}
+
+.apol-directory-table th,
+.apol-small-table th {
+  padding: 10px 8px;
+  background: linear-gradient(100deg, #082d73, #031a4e);
+  color: white;
+  font-weight: 850;
+  white-space: nowrap;
+  text-align: left;
+}
+
+.apol-directory-table th:first-child,
+.apol-small-table th:first-child {
+  border-radius: 7px 0 0 7px;
+}
+
+.apol-directory-table th:last-child,
+.apol-small-table th:last-child {
+  border-radius: 0 7px 7px 0;
+}
+
+.apol-directory-table td,
+.apol-small-table td {
+  padding: 10px 8px;
+  border-bottom: 1px solid #dce7f7;
+  vertical-align: middle;
+  color: #1b3569;
+}
+
+.apol-directory-table tr {
+  cursor: pointer;
+}
+
+.apol-directory-table tbody tr:hover {
+  background: #f0f7ff;
+}
+
+.apol-directory-table tbody tr.selected {
+  background: linear-gradient(#dceeff, #c7e2ff);
+}
+
+.apol-policy-name {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.apol-policy-name > svg {
+  flex-shrink: 0;
+  color: #0954ea;
+}
+
+.apol-policy-name > span {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.apol-policy-name strong {
+  color: #102f73;
+  font-weight: 900;
+}
+
+.apol-policy-name small {
+  color: #3e5579;
+  line-height: 1.25;
+}
+
+.apol-risk-list {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.apol-risk,
+.apol-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 9px;
+  border-radius: 30px;
+  white-space: nowrap;
+  font-size: 10px;
+  font-weight: 850;
+}
+
+.apol-risk-low {
+  color: #147b39;
+  background: #dcf9e2;
+}
+
+.apol-risk-medium {
+  color: #14549b;
+  background: #dbeeff;
+}
+
+.apol-risk-high {
+  color: #9b5c00;
+  background: #ffebac;
+}
+
+.apol-risk-critical {
+  color: #b5172b;
+  background: #ffd8dd;
+}
+
+.apol-status-active {
+  background: #d5f8dd;
+  color: #087d2e;
+}
+
+.apol-status-draft {
+  background: #e4eeff;
+  color: #0752cf;
+  border: 1px solid #9ec5ff;
+}
+
+.apol-status-pending {
+  background: #fff0c8;
+  color: #b45e00;
+}
+
+.apol-status-archived,
+.apol-status-superseded,
+.apol-status-inactive {
+  background: #e6eaf0;
+  color: #4c596d;
+}
+
+.apol-details {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 11px;
+  border: 1px solid #abc6f5;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.apol-detail-heading {
+  padding: 4px 6px 10px;
+}
+
+.apol-detail-heading-main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.apol-detail-heading-main > svg {
+  flex-shrink: 0;
+  color: #0752dd;
+}
+
+.apol-detail-heading-main h2 {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-size: 20px;
+  font-weight: 900;
+  color: #0c3284;
+}
+
+.apol-detail-meta {
+  display: flex;
+  justify-content: space-around;
+  flex-wrap: wrap;
+  gap: 7px 12px;
+  margin-top: 13px;
+  font-size: 11px;
+}
+
+.apol-detail-meta b {
+  color: #0b347d;
+  margin-right: 5px;
+}
+
+.apol-detail-card {
+  min-width: 0;
+  padding: 9px 10px;
+  border: 1px solid #bad0f7;
+  border-radius: 10px;
+}
+
+.apol-detail-card h3 {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 0 0 9px;
+  color: #0749c7;
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.apol-description {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid #d2def3;
+  border-radius: 9px;
+  background: #f6f9ff;
+  color: #2b4470;
+  line-height: 1.4;
+}
+
+.apol-small-table a {
+  color: #084ece;
+  font-weight: 800;
+  text-decoration: underline;
+}
+
+.apol-small-table strong {
+  color: #16357d;
+}
+
+.apol-sequence {
+  display: block;
+  margin-top: 4px;
+  font-size: 10px;
+  color: #39567d;
+}
+
+.apol-version-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: center;
+}
+
+.apol-version-heading h3 {
+  margin-bottom: 10px;
+}
+
+.apol-version-heading button {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  border: 0;
+  color: #0655d7;
+  background: none;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.apol-empty,
+.apol-placeholder {
+  text-align: center;
+  padding: 24px 10px !important;
+  color: #667d9f;
+}
+
+.apol-error {
+  padding: 12px;
+  border: 1px solid #edb6c0;
+  border-radius: 8px;
+  color: #ac2338;
+  background: #fff0f3;
+}
+
+.apol-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(5, 19, 51, .55);
+}
+
+.apol-dialog {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: min(500px, 100%);
+  padding: 24px;
+  border-radius: 14px;
+  background: white;
+  box-shadow: 0 20px 65px rgba(0, 20, 60, .3);
+}
+
+.apol-dialog h2 {
+  margin: 0;
+  font-size: 21px;
+  color: #0d347c;
+}
+
+.apol-dialog p {
+  margin: 0;
+  color: #506887;
+  line-height: 1.5;
+}
+
+.apol-dialog label {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  color: #173c79;
+  font-weight: 800;
+}
+
+.apol-dialog input,
+.apol-dialog textarea {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #b3c9eb;
+  border-radius: 8px;
+  color: #17356c;
+  font: inherit;
+}
+
+.apol-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 9px;
+}
+
+@media (max-width: 1350px) {
+  .apol-columns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .apol-metrics {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .apol-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .apol-searchbar {
+    flex-wrap: wrap;
+  }
+
+  .apol-detail-heading-main {
+    flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 480px) {
+  .apol-metrics {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .apol-heading-actions {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+}
+
+.apol-draft-action {
+  display: flex;
+  justify-content: flex-end;
+  padding-bottom: 10px;
+}

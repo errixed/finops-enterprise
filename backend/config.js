@@ -42,8 +42,11 @@ export const ENUMS = Object.freeze({
 
     ACCOUNT_TYPES: [
         "Operating",
+        "Trade Finance",
+        "Foreign Currency",
         "Savings",
-        "Investment"
+        "Investment",
+        "Escrow"
     ],
 
     CURRENCIES: [

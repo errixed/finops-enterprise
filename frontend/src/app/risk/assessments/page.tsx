@@ -1,469 +1,573 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-
-import {
-    getRiskAssessments,
-    RiskAssessmentFilters,
-    RiskAssessmentList
-} from "@/services/risk-assessments";
-
 import { ROUTES } from "../../../../config";
+import { Icon, StatusBadge } from "@/components/ui";
+import {
+  type AssessmentDashboardRow,
+  type AssessmentDashboardResult,
+  getAssessmentDashboard
+} from "@/services/risk-assessment-dashboard";
+import "./risk-assessment-dashboard.css";
 
-const PAGE_SIZE = 10;
+const pageSizes = [5, 10, 20, 50, 100];
 
-const initialFilters: RiskAssessmentFilters = {
-    search: "",
-    riskLevel: "",
-    dateFrom: "",
-    dateTo: "",
-    sortBy: "assessedAt",
-    sortOrder: "desc",
-    page: 1,
-    pageSize: PAGE_SIZE
-};
+function formatAmount(value: string, currency: string) {
+  try {
+    const amount = BigInt(value);
+    const negative = amount < BigInt(0);
+    const absolute = negative ? -amount : amount;
 
-export default function RiskAssessmentsPage() {
-    const [filters, setFilters] =
-        useState<RiskAssessmentFilters>(initialFilters);
+    return `${negative ? "−" : ""}${(
+      absolute / BigInt(100)
+    ).toLocaleString("en-CA")}.${String(
+      absolute % BigInt(100)
+    ).padStart(2, "0")} ${currency}`;
+  } catch {
+    return "—";
+  }
+}
 
-    const [searchInput, setSearchInput] = useState("");
-    const [minInput, setMinInput] = useState("");
-    const [maxInput, setMaxInput] = useState("");
+function dateTime(value: string | null) {
+  if (!value) return "—";
 
-    const [result, setResult] =
-        useState<RiskAssessmentList | null>(null);
+  const date = new Date(value);
 
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState("");
+  if (Number.isNaN(date.getTime())) return "—";
 
-    useEffect(() => {
-        const timeout = setTimeout(() => {
-            setFilters(previous => ({
-                ...previous,
-                search: searchInput.trim(),
-                minScore: minInput === ""
-                    ? undefined
-                    : Number(minInput),
-                maxScore: maxInput === ""
-                    ? undefined
-                    : Number(maxInput),
-                page: 1
-            }));
-        }, 350);
+  return date.toLocaleString("en-CA", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false
+  });
+}
 
-        return () => clearTimeout(timeout);
-    }, [searchInput, minInput, maxInput]);
+function Stat({
+  title,
+  value,
+  detail,
+  icon,
+  tone
+}: {
+  title: string;
+  value: string;
+  detail?: string;
+  icon: string;
+  tone: string;
+}) {
+  return (
+    <article className={`rad-stat rad-stat-${tone}`}>
+      <Icon name={icon} size={32} />
+      <div>
+        <span>{title}</span>
+        <strong>{value}</strong>
+        {detail && <small>{detail}</small>}
+      </div>
+    </article>
+  );
+}
 
-    const invalidScores =
-        (minInput !== "" &&
-            (!Number.isInteger(Number(minInput)) ||
-                Number(minInput) < 0 ||
-                Number(minInput) > 100)) ||
-        (maxInput !== "" &&
-            (!Number.isInteger(Number(maxInput)) ||
-                Number(maxInput) < 0 ||
-                Number(maxInput) > 100)) ||
-        (minInput !== "" &&
-            maxInput !== "" &&
-            Number(minInput) > Number(maxInput));
+function Panel({
+  title,
+  icon,
+  children
+}: {
+  title: string;
+  icon: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="rad-panel">
+      <header className="rad-panel-header">
+        <h2>
+          <Icon name={icon} size={22} />
+          {title}
+        </h2>
+      </header>
+      <div className="rad-panel-content">
+        {children}
+      </div>
+    </section>
+  );
+}
 
-    const invalidDates = Boolean(
-        filters.dateFrom &&
-        filters.dateTo &&
-        filters.dateFrom > filters.dateTo
+function InfoRow({
+  label,
+  children
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="rad-info-row">
+      <span>{label}</span>
+      <strong>{children}</strong>
+    </div>
+  );
+}
+
+function exportAssessment(
+  row: AssessmentDashboardRow,
+  rules: AssessmentDashboardResult["rules"]
+) {
+  const evaluation = rules.map(rule => {
+    const match = row.triggeredRules.find(
+      item => item.ruleId === rule.ruleId
     );
 
-    useEffect(() => {
-        if (invalidScores || invalidDates) {
-            setResult(null);
-            setLoading(false);
-            return;
-        }
+    return [
+      rule.ruleId,
+      rule.name,
+      match ? "Triggered" : "Not recorded as triggered",
+      match?.points ?? 0,
+      match?.reason ?? ""
+    ];
+  });
 
-        const controller = new AbortController();
+  const lines = [
+    ["Field", "Value"],
+    ["Assessment ID", row.assessmentId],
+    ["Transaction ID", row.transactionId],
+    ["Reference", row.referenceNumber],
+    ["Client", row.clientName],
+    ["Risk Score", row.riskScore],
+    ["Risk Level", row.riskLevel],
+    ["Policy Version", row.policyVersion],
+    ["Assessed At", row.assessedAt ?? ""],
+    [],
+    ["Rule ID", "Rule Name", "Result", "Points", "Details"],
+    ...evaluation
+  ];
 
-        async function load() {
-            setLoading(true);
-            setError("");
+  const escape = (value: unknown) => {
+    let text = String(value ?? "");
+    if (/^[=+\-@\t\r]/.test(text)) text = `'${text}`;
+    return `"${text.replaceAll('"', '""')}"`;
+  };
 
-            try {
-                const data = await getRiskAssessments(
-                    filters,
-                    controller.signal
-                );
+  const csv = lines
+    .map(line => line.map(escape).join(","))
+    .join("\r\n");
 
-                if (!controller.signal.aborted) {
-                    setResult(data);
-                }
-            } catch (err) {
-                if (!controller.signal.aborted) {
-                    setResult(null);
-                    setError(
-                        err instanceof Error
-                            ? err.message
-                            : "Unable to load assessments"
-                    );
-                }
-            } finally {
-                if (!controller.signal.aborted) {
-                    setLoading(false);
-                }
-            }
-        }
+  const url = URL.createObjectURL(
+    new Blob(["\uFEFF", csv], {
+      type: "text/csv;charset=utf-8"
+    })
+  );
 
-        load();
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = `risk-assessment-${row.assessmentId}.csv`;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
+}
 
-        return () => controller.abort();
-    }, [filters, invalidScores, invalidDates]);
+export default function RiskAssessmentPage() {
+  const [search, setSearch] = useState("");
+  const [appliedSearch, setAppliedSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [result, setResult] = useState<AssessmentDashboardResult | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-    function updateFilter(
-        key: keyof RiskAssessmentFilters,
-        value: string
-    ) {
-        setFilters(previous => ({
-            ...previous,
-            [key]: value,
-            page: 1
-        }));
-    }
+  useEffect(() => {
+    const controller = new AbortController();
 
-    function clearFilters() {
-        setSearchInput("");
-        setMinInput("");
-        setMaxInput("");
-        setFilters({ ...initialFilters });
-    }
+    setLoading(true);
+    setError("");
 
-    const page = filters.page ?? 1;
-    const pagination = result?.pagination;
-    const totalPages = pagination?.totalPages ?? 0;
+    getAssessmentDashboard({
+      search: appliedSearch,
+      page,
+      pageSize
+    }, controller.signal)
+      .then(data => {
+        if (controller.signal.aborted) return;
 
-    const start = pagination?.total
-        ? (page - 1) * PAGE_SIZE + 1
-        : 0;
+        setResult(data);
 
-    const end = Math.min(
-        page * PAGE_SIZE,
-        pagination?.total ?? 0
-    );
+        setSelectedId(previous =>
+          data.data.some(item => item.assessmentId === previous)
+            ? previous
+            : data.data[0]?.assessmentId ?? null
+        );
+      })
+      .catch(err => {
+        if (controller.signal.aborted) return;
 
-    return (
-        <section className="transaction-directory">
-            <div className="transaction-directory-header">
-                <h1>Risk Assessments</h1>
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Unable to load risk assessments."
+        );
 
-                <Link
-                    href={ROUTES.risk}
-                    className="transaction-directory-create"
-                >
-                    Risk Dashboard
-                </Link>
-            </div>
+        setResult(null);
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
+      });
 
-            <div className="risk-assessment-filters">
-                <div className="transaction-directory-search">
-                    <span className="material-symbols-rounded">
-                        search
-                    </span>
+    return () => controller.abort();
+  }, [appliedSearch, page, pageSize]);
 
-                    <input
-                        type="search"
-                        aria-label="Search transaction reference"
-                        placeholder="Transaction reference or ID"
-                        value={searchInput}
-                        onChange={event =>
-                            setSearchInput(event.target.value)
-                        }
-                    />
-                </div>
+  const rows = result?.data ?? [];
+  const selected = rows.find(
+    row => row.assessmentId === selectedId
+  ) ?? null;
 
-                <div className="transaction-directory-field">
-                    <label htmlFor="risk-level">Risk Level</label>
-                    <select
-                        id="risk-level"
-                        value={filters.riskLevel ?? ""}
-                        onChange={event =>
-                            updateFilter(
-                                "riskLevel",
-                                event.target.value
-                            )
-                        }
-                    >
-                        <option value="">All Levels</option>
-                        <option value="Low">Low</option>
-                        <option value="Medium">Medium</option>
-                        <option value="High">High</option>
-                        <option value="Critical">Critical</option>
-                    </select>
-                </div>
+  const evaluation = useMemo(() => {
+    if (!selected || !result) return [];
 
-                <div className="transaction-directory-field">
-                    <label htmlFor="risk-min">Minimum Score</label>
-                    <input
-                        id="risk-min"
-                        type="number"
-                        min={0}
-                        max={100}
-                        step={1}
-                        placeholder="0"
-                        value={minInput}
-                        onChange={event =>
-                            setMinInput(event.target.value)
-                        }
-                    />
-                </div>
+    return result.rules.map(rule => {
+      const triggered = selected.triggeredRules.find(
+        item => item.ruleId === rule.ruleId
+      );
 
-                <div className="transaction-directory-field">
-                    <label htmlFor="risk-max">Maximum Score</label>
-                    <input
-                        id="risk-max"
-                        type="number"
-                        min={0}
-                        max={100}
-                        step={1}
-                        placeholder="100"
-                        value={maxInput}
-                        onChange={event =>
-                            setMaxInput(event.target.value)
-                        }
-                    />
-                </div>
+      return {
+        ...rule,
+        triggered,
+        contribution: triggered?.points ?? 0,
+        details: triggered?.reason ??
+          "No trigger recorded for this rule"
+      };
+    });
+  }, [selected, result]);
 
-                <div className="transaction-directory-field">
-                    <label htmlFor="risk-from">From Date</label>
-                    <input
-                        id="risk-from"
-                        type="date"
-                        value={filters.dateFrom ?? ""}
-                        max={filters.dateTo || undefined}
-                        onChange={event =>
-                            updateFilter(
-                                "dateFrom",
-                                event.target.value
-                            )
-                        }
-                    />
-                </div>
+  const summary = result?.statistics;
+  const total = result?.pagination.total ?? 0;
+  const totalPages = result?.pagination.totalPages ?? 0;
 
-                <div className="transaction-directory-field">
-                    <label htmlFor="risk-to">To Date</label>
-                    <input
-                        id="risk-to"
-                        type="date"
-                        value={filters.dateTo ?? ""}
-                        min={filters.dateFrom || undefined}
-                        onChange={event =>
-                            updateFilter(
-                                "dateTo",
-                                event.target.value
-                            )
-                        }
-                    />
-                </div>
+  const start = total ? (page - 1) * pageSize + 1 : 0;
+  const end = Math.min(page * pageSize, total);
 
-                <div className="transaction-directory-field">
-                    <label htmlFor="risk-sort">Sort By</label>
-                    <select
-                        id="risk-sort"
-                        value={filters.sortBy}
-                        onChange={event =>
-                            updateFilter(
-                                "sortBy",
-                                event.target.value
-                            )
-                        }
-                    >
-                        <option value="assessedAt">
-                            Assessment Date
-                        </option>
-                        <option value="riskScore">
-                            Risk Score
-                        </option>
-                    </select>
-                </div>
+  function applySearch(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setPage(1);
+    setAppliedSearch(search.trim());
+  }
 
-                <div className="transaction-directory-field">
-                    <label htmlFor="risk-order">Order</label>
-                    <select
-                        id="risk-order"
-                        value={filters.sortOrder}
-                        onChange={event =>
-                            updateFilter(
-                                "sortOrder",
-                                event.target.value
-                            )
-                        }
-                    >
-                        <option value="desc">Descending</option>
-                        <option value="asc">Ascending</option>
-                    </select>
-                </div>
-            </div>
+  return (
+    <section className="rad-page">
+      <div className="rad-metrics">
+        <Stat
+          title="Assessments (Last 30 Days)"
+          value={String(summary?.assessments ?? 0)}
+          icon="description"
+          tone="blue"
+        />
 
-            <button
-                type="button"
-                className="transaction-directory-clear"
-                onClick={clearFilters}
-            >
-                Clear Filters
+        <Stat
+          title="High / Critical"
+          value={String(summary?.highCritical ?? 0)}
+          detail={summary?.assessments
+            ? `${(summary.highCritical / summary.assessments * 100).toFixed(1)}%`
+            : "0.0%"}
+          icon="warning"
+          tone="red"
+        />
+
+        <Stat
+          title="In Review"
+          value={String(summary?.inReview ?? 0)}
+          detail={summary?.assessments
+            ? `${(summary.inReview / summary.assessments * 100).toFixed(1)}%`
+            : "0.0%"}
+          icon="hourglass_top"
+          tone="amber"
+        />
+
+        <Stat
+          title="Completed"
+          value={String(summary?.completed ?? 0)}
+          detail={summary?.assessments
+            ? `${(summary.completed / summary.assessments * 100).toFixed(1)}%`
+            : "0.0%"}
+          icon="check_circle"
+          tone="green"
+        />
+
+        <Stat
+          title="Avg. Risk Score"
+          value={summary?.averageScore == null
+            ? "—"
+            : `${summary.averageScore} / 100`}
+          icon="target"
+          tone="blue"
+        />
+      </div>
+
+      {error && (
+        <div className="rad-error" role="alert">
+          {error}
+        </div>
+      )}
+
+      <div className="rad-layout">
+        <Panel title="Transactions for Risk Assessment" icon="description">
+          <form className="rad-search" onSubmit={applySearch}>
+            <Icon name="search" size={21} />
+            <input
+              value={search}
+              onChange={event => setSearch(event.target.value)}
+              placeholder="Search by transaction ID, client, or amount..."
+              aria-label="Search risk assessments"
+            />
+            <button type="submit">
+              <Icon name="search" size={19} />
+              Search
             </button>
+          </form>
 
-            {(invalidScores || invalidDates) && (
-                <p
-                    className="transaction-directory-error"
-                    role="alert"
-                >
-                    {invalidScores
-                        ? "Enter whole-number scores from 0 to 100, with minimum not exceeding maximum."
-                        : "From Date cannot be after To Date."}
-                </p>
-            )}
+          <div className="rad-table-scroll">
+            <table className="rad-table">
+              <thead>
+                <tr>
+                  <th>Transaction ID</th>
+                  <th>Client</th>
+                  <th>Amount</th>
+                  <th>Risk</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {loading ? (
+                  <tr>
+                    <td colSpan={5} className="rad-empty">
+                      Loading assessments...
+                    </td>
+                  </tr>
+                ) : rows.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="rad-empty">
+                      No matching assessments found.
+                    </td>
+                  </tr>
+                ) : rows.map(row => (
+                  <tr
+                    key={row.assessmentId}
+                    className={
+                      row.assessmentId === selectedId
+                        ? "rad-selected-row"
+                        : ""
+                    }
+                    onClick={() => setSelectedId(row.assessmentId)}
+                  >
+                    <td>
+                      <button
+                        type="button"
+                        className="rad-transaction-link"
+                        onClick={() => setSelectedId(row.assessmentId)}
+                      >
+                        {row.referenceNumber}
+                      </button>
+                    </td>
+                    <td>{row.clientName}</td>
+                    <td>{formatAmount(row.amountMinor, row.currency)}</td>
+                    <td><StatusBadge status={row.riskLevel} /></td>
+                    <td>
+                      <StatusBadge
+                        status={row.approvalStatus ?? row.transactionStatus}
+                      />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
 
-            <div className="transaction-directory-table-scroll">
-                <table className="transaction-directory-table">
-                    <thead>
-                        <tr>
-                            <th>Assessment</th>
-                            <th>Transaction</th>
-                            <th>Date</th>
-                            <th>Risk Score</th>
-                            <th>Risk Level</th>
-                            <th>Approval</th>
-                            <th>Action</th>
-                        </tr>
-                    </thead>
-
-                    <tbody>
-                        <tr style={{ display: "none" }}>
-                            <td colSpan={7} />
-                        </tr>
-
-                        {loading ? (
-                            <tr>
-                                <td colSpan={7}>
-                                    Loading assessments...
-                                </td>
-                            </tr>
-                        ) : error || invalidScores || invalidDates ? (
-                            <tr>
-                                <td colSpan={7} role="alert">
-                                    {error ||
-                                        "Please correct the filters."}
-                                </td>
-                            </tr>
-                        ) : !result?.data.length ? (
-                            <tr>
-                                <td colSpan={7}>
-                                    No risk assessments found.
-                                </td>
-                            </tr>
-                        ) : (
-                            result.data.map(assessment => (
-                                <tr key={assessment.assessmentId}>
-                                    <td>
-                                        <Link
-                                            className="transaction-directory-reference"
-                                            href={ROUTES.riskAssessmentDetails(
-                                                assessment.assessmentId
-                                            )}
-                                        >
-                                            {assessment.assessmentId.slice(0, 12)}
-                                        </Link>
-                                    </td>
-
-                                    <td>
-                                        <Link
-                                            href={ROUTES.transactionDetails(
-                                                assessment.transactionId
-                                            )}
-                                        >
-                                            {assessment.transactionId.slice(0, 12)}
-                                        </Link>
-                                    </td>
-
-                                    <td>
-                                        {new Date(
-                                            assessment.assessedAt
-                                        ).toLocaleDateString("en-CA")}
-                                    </td>
-
-                                    <td>{assessment.riskScore} / 100</td>
-
-                                    <td>
-                                        <span
-                                            className={`risk-assessment-level ${assessment.riskLevel.toLowerCase()}`}
-                                        >
-                                            {assessment.riskLevel}
-                                        </span>
-                                    </td>
-
-                                    <td>
-                                        {assessment.approvalRequired
-                                            ? "Required"
-                                            : "Not required"}
-                                    </td>
-
-                                    <td>
-                                        <Link
-                                            href={ROUTES.riskAssessmentDetails(
-                                                assessment.assessmentId
-                                            )}
-                                            className="transaction-directory-reference"
-                                        >
-                                            View Details
-                                        </Link>
-                                    </td>
-                                </tr>
-                            ))
-                        )}
-                    </tbody>
-                </table>
+          <footer className="rad-pagination">
+            <div>
+              <label htmlFor="rad-page-size">Rows per page:</label>
+              <select
+                id="rad-page-size"
+                value={pageSize}
+                onChange={event => {
+                  setPageSize(Number(event.target.value));
+                  setPage(1);
+                }}
+              >
+                {pageSizes.map(size => (
+                  <option key={size} value={size}>{size}</option>
+                ))}
+              </select>
+              <span>{start}–{end} of {total}</span>
             </div>
 
-            <div className="risk-assessment-footer">
-                <span>
-                    Showing {start}–{end} of{" "}
-                    {pagination?.total ?? 0}
-                </span>
+            <div className="rad-pagination-buttons">
+              <button
+                type="button"
+                disabled={page <= 1}
+                onClick={() => setPage(page - 1)}
+                aria-label="Previous page"
+              >
+                <Icon name="chevron_left" size={19} />
+              </button>
 
-                <div className="risk-assessment-pagination">
-                    <button
-                        type="button"
-                        disabled={page <= 1 || loading}
-                        onClick={() =>
-                            setFilters(previous => ({
-                                ...previous,
-                                page: page - 1
-                            }))
-                        }
-                    >
-                        Previous
-                    </button>
+              <span>{page} / {Math.max(1, totalPages)}</span>
 
-                    <span>
-                        Page {page} of {Math.max(1, totalPages)}
-                    </span>
+              <button
+                type="button"
+                disabled={page >= totalPages}
+                onClick={() => setPage(page + 1)}
+                aria-label="Next page"
+              >
+                <Icon name="chevron_right" size={19} />
+              </button>
+            </div>
+          </footer>
+        </Panel>
 
-                    <button
-                        type="button"
-                        disabled={
-                            loading ||
-                            totalPages === 0 ||
-                            page >= totalPages
-                        }
-                        onClick={() =>
-                            setFilters(previous => ({
-                                ...previous,
-                                page: page + 1
-                            }))
-                        }
-                    >
-                        Next
-                    </button>
+        <div className="rad-right">
+          <Panel
+            title={`Risk Assessment${selected ? ` — ${selected.referenceNumber}` : ""}`}
+            icon="description"
+          >
+            {selected ? (
+              <div className="rad-assessment-summary">
+                <div className="rad-assessment-client">
+                  <InfoRow label="Client">{selected.clientName}</InfoRow>
+                  <InfoRow label="Amount">
+                    {formatAmount(selected.amountMinor, selected.currency)}
+                  </InfoRow>
+                  <InfoRow label="Type">{selected.transactionType}</InfoRow>
+                  <InfoRow label="Date">{dateTime(selected.assessedAt)}</InfoRow>
                 </div>
-            </div>
-        </section>
-    );
+
+                <div className="rad-assessment-score">
+                  <span>Risk Score</span>
+                  <strong className={`rad-score-${selected.riskLevel.toLowerCase()}`}>
+                    {selected.riskScore}
+                    <small> / 100</small>
+                  </strong>
+                  <StatusBadge status={selected.riskLevel} />
+                </div>
+
+                <div className="rad-assessment-meta">
+                  <InfoRow label="Assessment ID">
+                    {selected.assessmentId}
+                  </InfoRow>
+                  <InfoRow label="Policy Version">
+                    v{selected.policyVersion}
+                  </InfoRow>
+                  <InfoRow label="Assessed On">
+                    {dateTime(selected.assessedAt)}
+                  </InfoRow>
+                  <InfoRow label="Assessed By">
+                    Risk Engine (Automated)
+                  </InfoRow>
+                </div>
+              </div>
+            ) : (
+              <p className="rad-empty">Select an assessment to view its details.</p>
+            )}
+          </Panel>
+
+          <Panel title="Rule Evaluation (RISK-001 – RISK-008)" icon="fact_check">
+            {selected ? (
+              <div className="rad-table-scroll">
+                <table className="rad-table rad-rule-table">
+                  <thead>
+                    <tr>
+                      <th>Rule ID</th>
+                      <th>Rule Name</th>
+                      <th>Result</th>
+                      <th>Contribution</th>
+                      <th>Details</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {evaluation.map(rule => (
+                      <tr key={rule.ruleId}>
+                        <td>{rule.ruleId}</td>
+                        <td>{rule.name}</td>
+                        <td>
+                          <span className={
+                            rule.triggered
+                              ? "rad-triggered"
+                              : "rad-not-triggered"
+                          }>
+                            {rule.triggered
+                              ? "Triggered"
+                              : "Not triggered"}
+                          </span>
+                        </td>
+                        <td className={
+                          rule.triggered ? "rad-positive-points" : ""
+                        }>
+                          {rule.triggered ? `+${rule.contribution}` : "0"}
+                        </td>
+                        <td className="rad-rule-details">{rule.details}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className="rad-empty">No assessment selected.</p>
+            )}
+          </Panel>
+
+          <div className="rad-bottom">
+            <Panel title="Assessment Summary" icon="description">
+              {selected ? (
+                <div className="rad-summary-text">
+                  <strong>
+                    {selected.riskLevel} risk ({selected.riskScore}/100)
+                  </strong>
+                  <p>
+                    {selected.triggeredRules.length
+                      ? `${selected.triggeredRules.length} risk rule(s) triggered: ${selected.triggeredRules.map(rule => rule.ruleId).join(", ")}.`
+                      : "No risk rules triggered."}
+                    {" "}
+                    {selected.approvalRequired
+                      ? "Manual approval is required."
+                      : "Manual approval is not required."}
+                  </p>
+                </div>
+              ) : (
+                <p className="rad-empty">Select an assessment.</p>
+              )}
+            </Panel>
+
+            <Panel title="Available Actions" icon="settings">
+              {selected ? (
+                <div className="rad-actions">
+                  <Link href={ROUTES.transactionDetails(selected.transactionId)}>
+                    <Icon name="visibility" size={25} />
+                    View Transaction
+                  </Link>
+
+                  <Link href={ROUTES.riskPolicies}>
+                    <Icon name="description" size={25} />
+                    View Risk Policy
+                  </Link>
+
+                  <button
+                    type="button"
+                    onClick={() => exportAssessment(
+                      selected,
+                      result?.rules ?? []
+                    )}
+                  >
+                    <Icon name="download" size={25} />
+                    Export Assessment
+                  </button>
+                </div>
+              ) : (
+                <p className="rad-empty">No actions available.</p>
+              )}
+            </Panel>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
 }

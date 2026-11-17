@@ -3,7 +3,7 @@ import {
     getRiskPolicy,
     createRiskPolicy,
     modifyDraftRiskPolicy,
-    activateRiskPolicy
+    activateRiskPolicy,
 } from "../services/risk-policy.service.js";
 
 export async function getRiskPolicies(req, res, next) {

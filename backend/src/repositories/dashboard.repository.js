@@ -165,3 +165,102 @@ export async function getDashboardGrowthStatistics() {
         completedTransactionsThisWeek
     };
 }
+
+export async function getDashboardTrend(days = 30) {
+    const db = getDatabase();
+
+    const now = new Date();
+    const start = new Date(now);
+    start.setUTCDate(start.getUTCDate() - days + 1);
+    start.setUTCHours(0, 0, 0, 0);
+
+    const [transactions, assessments] = await Promise.all([
+        db.collection("transactions").aggregate([
+            {
+                $match: {
+                    createdAt: { $gte: start, $lte: now }
+                }
+            },
+            {
+                $group: {
+                    _id: {
+                        $dateToString: {
+                            format: "%Y-%m-%d",
+                            date: "$createdAt",
+                            timezone: "UTC"
+                        }
+                    },
+                    count: { $sum: 1 }
+                }
+            },
+            { $sort: { _id: 1 } }
+        ]).toArray(),
+
+        db.collection("risk_assessments").aggregate([
+            {
+                $match: {
+                    assessedAt: { $gte: start, $lte: now }
+                }
+            },
+            {
+                $group: {
+                    _id: {
+                        $dateToString: {
+                            format: "%Y-%m-%d",
+                            date: "$assessedAt",
+                            timezone: "UTC"
+                        }
+                    },
+                    total: { $sum: 1 },
+                    highRisk: {
+                        $sum: {
+                            $cond: [
+                                {
+                                    $in: [
+                                        "$riskLevel",
+                                        ["High", "Critical"]
+                                    ]
+                                },
+                                1,
+                                0
+                            ]
+                        }
+                    }
+                }
+            },
+            { $sort: { _id: 1 } }
+        ]).toArray()
+    ]);
+
+    const transactionMap = new Map(
+        transactions.map(item => [item._id, item.count])
+    );
+
+    const riskMap = new Map(
+        assessments.map(item => [item._id, item])
+    );
+
+    const points = [];
+
+    for (let i = 0; i < days; i++) {
+        const date = new Date(start);
+        date.setUTCDate(start.getUTCDate() + i);
+
+        const key = date.toISOString().slice(0, 10);
+        const risk = riskMap.get(key);
+
+        points.push({
+            date: key,
+            transactionCount: transactionMap.get(key) ?? 0,
+            assessmentCount: risk?.total ?? 0,
+            highRiskCount: risk?.highRisk ?? 0
+        });
+    }
+
+    return {
+        days,
+        startDate: start.toISOString(),
+        endDate: now.toISOString(),
+        points
+    };
+}

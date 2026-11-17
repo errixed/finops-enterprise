@@ -9,11 +9,13 @@ import {
     insertRiskPolicy,
     updateDraftRiskPolicy,
     activateRiskPolicyVersion,
-    searchRiskPolicies
+    searchRiskPolicies,
 } from "../repositories/risk-policy.repository.js";
 
 import {
-    validateRiskPolicy
+    validateRiskPolicy,
+    DEFAULT_RISK_RULES,
+    DEFAULT_RISK_THRESHOLDS
 } from "./risk-assessment.service.js";
 
 import {
@@ -47,7 +49,22 @@ function validateConfiguration(rules, thresholds) {
         fail(error.message, 400);
     }
 }
+function validateLockedSeededRules(rules) {
+    for (const seeded of DEFAULT_RISK_RULES) {
+        const current = rules.find(rule =>
+            rule.ruleId === seeded.ruleId
+        );
 
+        if (
+            !current ||
+            current.points !== seeded.points ||
+            current.threshold !== seeded.threshold ||
+            Object.keys(current).length !== Object.keys(seeded).length
+        ) {
+            fail(`${seeded.ruleId} is a locked seeded rule`);
+        }
+    }
+}
 export async function listRiskPolicies(query = {}) {
     const paginated =
         query.page !== undefined ||
@@ -100,7 +117,13 @@ export async function createRiskPolicy(input, actorId) {
         fail("Invalid risk policy request");
     }
 
-    const { policyId, currency } = input;
+    const {
+        policyId,
+        currency,
+        policyName,
+        description,
+        plannedEffectiveFrom
+    } = input;
 
     if (
         typeof policyId !== "string" ||
@@ -113,33 +136,59 @@ export async function createRiskPolicy(input, actorId) {
         fail("Unsupported currency");
     }
 
-    const latest = await findLatestRiskPolicy(
-        policyId,
-        currency
-    );
-
-    if (!latest) {
-        fail("Policy family not found", 404);
+    if (
+        typeof policyName !== "string" ||
+        !policyName.trim() ||
+        policyName.length > 120
+    ) {
+        fail("Policy name must be between 1 and 120 characters");
     }
 
+    if (
+        typeof description !== "string" ||
+        description.length > 1000
+    ) {
+        fail("Policy description cannot exceed 1000 characters");
+    }
+
+    if (
+        typeof plannedEffectiveFrom !== "string" ||
+        !/^\d{4}-\d{2}-\d{2}$/.test(plannedEffectiveFrom) ||
+        Number.isNaN(
+            Date.parse(`${plannedEffectiveFrom}T00:00:00.000Z`)
+        ) ||
+        new Date(`${plannedEffectiveFrom}T00:00:00.000Z`)
+            .toISOString()
+            .slice(0, 10) !== plannedEffectiveFrom
+    ) {
+        fail("A valid planned effective date is required");
+    }
+
+    const latest = await findLatestRiskPolicy(policyId, currency);
+
     const rules = structuredClone(
-        input.rules ?? latest.rules
+        input.rules ?? latest?.rules ?? DEFAULT_RISK_RULES
     );
 
     const thresholds = structuredClone(
-        input.thresholds ?? latest.thresholds
+        input.thresholds ??
+        latest?.thresholds ??
+        DEFAULT_RISK_THRESHOLDS
     );
 
     validateConfiguration(rules, thresholds);
-
+    validateLockedSeededRules(rules);
     const now = new Date();
 
     const document = {
         _id: randomUUID(),
         policyId,
-        version: latest.version + 1,
+        policyName: policyName.trim(),
+        description: description.trim(),
+        plannedEffectiveFrom,
+        version: latest ? latest.version + 1 : 1,
         currency,
-        isDefault: true,
+        isDefault: !latest || latest.isDefault === true,
         status: "Draft",
         rules,
         thresholds,
@@ -154,8 +203,12 @@ export async function createRiskPolicy(input, actorId) {
         return await insertRiskPolicy(document);
     } catch (error) {
         if (error.code === 11000) {
-            fail("Policy version already exists", 409);
+            fail(
+                "A policy version with this identifier already exists",
+                409
+            );
         }
+
         throw error;
     }
 }
@@ -197,7 +250,7 @@ export async function modifyDraftRiskPolicy(
     );
 
     validateConfiguration(rules, thresholds);
-
+    validateLockedSeededRules(rules);
 
     const updated = await updateDraftRiskPolicy(
         id,

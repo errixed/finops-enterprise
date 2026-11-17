@@ -1,0 +1,135 @@
+.ctt-container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-width: 0;
+  min-height: 190px;
+  padding: 6px 4px;
+  background: transparent;
+  color: #091c3b;
+}
+
+.ctt-chart {
+  flex: 1;
+  min-width: 0;
+}
+
+.ctt-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 270px;
+  overflow: visible;
+}
+
+.ctt-axis-text {
+  fill: #101d32;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.ctt-axis-title {
+  fill: #0e1d3c;
+  font-size: 16px;
+  font-weight: 750;
+}
+
+.ctt-month-text {
+  fill: #10213d;
+  font-size: 15px;
+  font-weight: 650;
+}
+
+.ctt-legend {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 21px;
+  flex: 0 0 136px;
+}
+
+.ctt-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #0b1c38;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+.ctt-legend-bar {
+  width: 30px;
+  height: 22px;
+  flex: none;
+  border: 2px solid #0758ed;
+  border-radius: 3px;
+  background: linear-gradient(135deg, #0061ff, #1688ff);
+}
+
+.ctt-legend-line {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 35px;
+  height: 3px;
+  flex: none;
+  background: #ff7900;
+}
+
+.ctt-legend-line > span {
+  width: 12px;
+  height: 12px;
+  background: #fff;
+  border: 3px solid #ff7900;
+  border-radius: 50%;
+}
+
+.ctt-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 190px;
+  color: #73839c;
+  font-size: 12px;
+}
+
+@media (max-width: 1200px) {
+  .ctt-container {
+    gap: 5px;
+  }
+
+  .ctt-legend {
+    flex-basis: 115px;
+  }
+
+  .ctt-legend-item {
+    font-size: 10px;
+    gap: 6px;
+  }
+}
+
+@media (max-width: 600px) {
+  .ctt-container {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .ctt-chart {
+    width: 100%;
+  }
+
+  .ctt-legend {
+    flex: none;
+    flex-direction: row;
+    justify-content: center;
+    gap: 22px;
+  }
+
+  .ctt-svg {
+    max-height: none;
+  }
+}

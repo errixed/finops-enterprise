@@ -1,330 +1,637 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-
-import {
-    ApprovalDashboardData,
-    ApprovalDecisionSummary,
-    getApprovalDashboard
-} from "@/services/approval-dashboard";
-
+import { Icon } from "@/components/ui";
 import { ROUTES } from "../../../config";
+import {
+  getApprovalOverview,
+  type ApprovalOverview
+} from "@/services/approval-overview";
+import "./approval-overview.css";
 
-function Metric({
-    title,
-    value,
-    tone = ""
-}: {
-    title: string;
-    value: number | string;
-    tone?: string;
-}) {
-    return (
-        <div className="finops-stat-card">
-            <span className="finops-stat-label">
-                {title}
-            </span>
+const COLORS = {
+  Approved: "#26b852",
+  Pending: "#ffc32e",
+  Rejected: "#fa454b"
+};
 
-            <strong className={`finops-stat-value ${tone}`}>
-                {typeof value === "number"
-                    ? value.toLocaleString("en-CA")
-                    : value}
-            </strong>
-        </div>
-    );
+const WORKFLOW_COLORS = [
+  "#1174f1",
+  "#27b855",
+  "#ffc526",
+  "#9948ed",
+  "#f46e72",
+  "#5db0d4"
+];
+
+function formatNumber(value: number) {
+  return value.toLocaleString("en-CA");
 }
 
-function formatDuration(minutes: number | null) {
-    if (minutes === null) return "N/A";
-
-    if (minutes < 60) {
-        return `${minutes.toFixed(1)} min`;
+function formatDay(value: string) {
+  return new Date(`${value}T00:00:00Z`).toLocaleDateString(
+    "en-CA",
+    {
+      timeZone: "UTC",
+      month: "short",
+      day: "2-digit"
     }
-
-    if (minutes < 1440) {
-        return `${(minutes / 60).toFixed(1)} hrs`;
-    }
-
-    return `${(minutes / 1440).toFixed(1)} days`;
+  );
 }
 
 function formatDate(value: string) {
-    const date = new Date(value);
-
-    return Number.isNaN(date.getTime())
-        ? "—"
-        : date.toLocaleString("en-CA", {
-            dateStyle: "medium",
-            timeStyle: "short"
-        });
+  return new Date(value).toLocaleString("en-CA", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit"
+  });
 }
 
-function DecisionType({
-    decision
+function money(value: number | string | null, currency: string | null) {
+  if (value === null) return "—";
+
+  const amount = Number(value);
+
+  if (!Number.isSafeInteger(amount)) return "—";
+
+  return `${(amount / 100).toLocaleString("en-CA", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  })} ${currency ?? ""}`;
+}
+
+function Panel({
+  title,
+  icon,
+  children
 }: {
-    decision: ApprovalDecisionSummary;
+  title: string;
+  icon: string;
+  children: React.ReactNode;
 }) {
-    if (decision.reviewType === "EscalationRequest") {
-        return (
-            <span className="finops-status pending">
-                Escalation Requested
-            </span>
-        );
-    }
-
-    if (decision.reviewType === "EscalationReview") {
-        return (
-            <span className={`finops-status ${
-                decision.decision === "Approved"
-                    ? "completed"
-                    : "rejected"
-            }`}>
-                Escalation {decision.decision}
-            </span>
-        );
-    }
-
-    return (
-        <span className={`finops-status ${
-            decision.decision === "Approved"
-                ? "completed"
-                : decision.decision === "Rejected"
-                    ? "rejected"
-                    : "pending"
-        }`}>
-            {decision.decision}
-        </span>
-    );
+  return (
+    <section className="ao-panel">
+      <header className="ao-panel-header">
+        <h2>
+          <Icon name={icon} size={22} />
+          {title}
+        </h2>
+      </header>
+      <div className="ao-panel-content">{children}</div>
+    </section>
+  );
 }
 
-export default function ApprovalsDashboardPage() {
-    const [dashboard, setDashboard] =
-        useState<ApprovalDashboardData | null>(null);
+function Metric({
+  label,
+  icon,
+  value,
+  change,
+  tone,
+  inverse = false
+}: {
+  label: string;
+  icon: string;
+  value: string;
+  change: number | null;
+  tone: string;
+  inverse?: boolean;
+}) {
+  const positive = change !== null &&
+    (inverse ? change <= 0 : change >= 0);
 
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState("");
+  return (
+    <article className={`ao-metric ao-metric-${tone}`}>
+      <div className="ao-metric-icon">
+        <Icon name={icon} size={29} />
+      </div>
 
-    useEffect(() => {
-        const controller = new AbortController();
+      <div className="ao-metric-copy">
+        <span>{label}</span>
+        <div className="ao-metric-line">
+          <strong>{value}</strong>
 
-        async function load() {
-            setLoading(true);
+          {change !== null && (
+            <span className={
+              positive ? "ao-change-positive" : "ao-change-negative"
+            }>
+              {change > 0 ? "▲" : change < 0 ? "▼" : "—"}
+              {" "}
+              {change > 0 ? "+" : ""}
+              {change.toFixed(1)}%
+            </span>
+          )}
+        </div>
 
-            try {
-                const result = await getApprovalDashboard(
-                    controller.signal
-                );
+        {change === null && (
+          <small>No previous-period comparison</small>
+        )}
+      </div>
+    </article>
+  );
+}
 
-                if (controller.signal.aborted) return;
+function VolumeTrend({
+  rows
+}: {
+  rows: ApprovalOverview["trend"];
+}) {
+  const width = 950;
+  const height = 260;
+  const left = 47;
+  const top = 13;
+  const bottom = 43;
+  const right = 15;
 
-                setDashboard(result);
-                setError("");
-            } catch (err) {
-                if (controller.signal.aborted) return;
+  const chartWidth = width - left - right;
+  const chartHeight = height - top - bottom;
 
-                setError(
-                    err instanceof Error
-                        ? err.message
-                        : "Unable to load approval dashboard"
-                );
-            } finally {
-                if (!controller.signal.aborted) {
-                    setLoading(false);
-                }
-            }
-        }
+  const maxValue = Math.max(
+    5,
+    ...rows.map(row =>
+      row.Approved + row.Pending + row.Rejected
+    )
+  );
 
-        load();
+  const ceiling = Math.ceil(maxValue / 5) * 5;
+  const slot = chartWidth / Math.max(1, rows.length);
+  const barWidth = Math.max(4, slot * 0.76);
+  const labelStep = Math.max(1, Math.ceil(rows.length / 8));
 
-        return () => controller.abort();
-    }, []);
+  return (
+    <div className="ao-trend">
+      <svg
+        viewBox={`0 0 ${width} ${height}`}
+        role="img"
+        aria-label="Approval volume trend with approved, pending, and rejected workflows"
+      >
+        {Array.from({ length: 6 }, (_, i) => {
+          const value = ceiling * i / 5;
+          const y = top + chartHeight * (1 - i / 5);
 
-    return (
-        <section className="finops-dashboard">
-            <div className="approval-dashboard-header">
-                <div>
-                    <h1>Approval Dashboard</h1>
-                    <p>
-                        Monitor transaction review activity,
-                        approval outcomes and workflow performance.
-                    </p>
-                </div>
+          return (
+            <g key={i}>
+              <line
+                x1={left}
+                x2={width - right}
+                y1={y}
+                y2={y}
+                stroke="#dbe6f4"
+              />
+              <text
+                x={left - 9}
+                y={y + 4}
+                textAnchor="end"
+                fontSize="13"
+                fill="#38537e"
+              >
+                {Math.round(value)}
+              </text>
+            </g>
+          );
+        })}
 
-                <Link
-                    href={ROUTES.approvalsQueue}
-                    className="transaction-directory-create"
+        {rows.map((row, index) => {
+          let stacked = 0;
+
+          return (
+            <g key={row.day}>
+              {(["Approved", "Pending", "Rejected"] as const)
+                .map(status => {
+                  const value = row[status];
+                  const barHeight = value / ceiling * chartHeight;
+                  const y = top + chartHeight - stacked - barHeight;
+
+                  stacked += barHeight;
+
+                  return (
+                    <rect
+                      key={status}
+                      x={left + index * slot +
+                        (slot - barWidth) / 2}
+                      y={y}
+                      width={barWidth}
+                      height={barHeight}
+                      fill={COLORS[status]}
+                    >
+                      <title>
+                        {`${row.day}: ${status} ${value}`}
+                      </title>
+                    </rect>
+                  );
+                })}
+
+              {(index % labelStep === 0 ||
+                index === rows.length - 1) && (
+                <text
+                  x={left + index * slot + slot / 2}
+                  y={height - 19}
+                  textAnchor="middle"
+                  fontSize="12"
+                  fill="#38537e"
                 >
-                    View Approval Queue
+                  {formatDay(row.day)}
+                </text>
+              )}
+            </g>
+          );
+        })}
+      </svg>
+
+      <div className="ao-chart-legend">
+        {(["Approved", "Pending", "Rejected"] as const)
+          .map(status => (
+            <span key={status}>
+              <i style={{ background: COLORS[status] }} />
+              {status}
+            </span>
+          ))}
+      </div>
+    </div>
+  );
+}
+
+function WorkflowDonut({
+  rows
+}: {
+  rows: ApprovalOverview["byWorkflow"];
+}) {
+  const total = rows.reduce((sum, row) => sum + row.count, 0);
+
+  let progress = 0;
+
+  const gradient = rows.map((row, index) => {
+    const start = progress;
+    progress += total ? row.count / total * 100 : 0;
+
+    return `${WORKFLOW_COLORS[index % WORKFLOW_COLORS.length]} ${start}% ${progress}%`;
+  }).join(", ");
+
+  return (
+    <div className="ao-workflow-distribution">
+      <div
+        className="ao-donut"
+        style={{
+          background: total
+            ? `conic-gradient(${gradient})`
+            : "#e2ebf7"
+        }}
+        role="img"
+        aria-label="Workflow distribution by transaction risk level"
+      >
+        <div className="ao-donut-center">
+          <strong>{formatNumber(total)}</strong>
+          <span>Total</span>
+        </div>
+      </div>
+
+      <div className="ao-workflow-legend">
+        {rows.map((row, index) => (
+          <div key={row.name}>
+            <i
+              style={{
+                background: WORKFLOW_COLORS[
+                  index % WORKFLOW_COLORS.length
+                ]
+              }}
+            />
+            <span>
+              {row.name === "Unknown"
+                ? "Unclassified"
+                : `${row.name} Risk`}
+            </span>
+            <strong>
+              {row.percent.toFixed(1)}%
+              {" "}
+              ({formatNumber(row.count)})
+            </strong>
+          </div>
+        ))}
+
+        {!rows.length && (
+          <p className="ao-empty">No workflow data for this period.</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function RiskBadge({ level }: { level: string }) {
+  return (
+    <span className={`ao-risk ao-risk-${level.toLowerCase()}`}>
+      <Icon
+        name={level === "Low" ? "check_circle" : "warning"}
+        size={14}
+      />
+      {level}
+    </span>
+  );
+}
+
+function RecentDecisions({
+  rows
+}: {
+  rows: ApprovalOverview["recentDecisions"];
+}) {
+  return (
+    <div className="ao-table-scroll">
+      <table className="ao-table">
+        <thead>
+          <tr>
+            <th>Approval ID</th>
+            <th>Transaction</th>
+            <th>Client</th>
+            <th>Amount</th>
+            <th>Risk Level</th>
+            <th>Decision</th>
+            <th>Decided By</th>
+            <th>Decision Time</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map(row => (
+            <tr key={row.decisionId}>
+              <td>
+                <Link href={
+                  ROUTES.approvalDetails(row.workflowId)
+                }>
+                  {row.decisionId.slice(0, 12)}
                 </Link>
-            </div>
+              </td>
+              <td>
+                <Link href={
+                  ROUTES.transactionDetails(row.transactionId)
+                }>
+                  {row.transactionId.slice(0, 12)}
+                </Link>
+              </td>
+              <td>
+                <strong>{row.clientId ?? "—"}</strong>
+                <small>{row.clientName ?? "Not recorded"}</small>
+              </td>
+              <td>{money(row.amountMinor, row.currency)}</td>
+              <td><RiskBadge level={row.riskLevel} /></td>
+              <td>
+                <span className={
+                  row.decision === "Approved"
+                    ? "ao-decision-approved"
+                    : "ao-decision-rejected"
+                }>
+                  <Icon
+                    name={
+                      row.decision === "Approved"
+                        ? "check_circle"
+                        : "cancel"
+                    }
+                    size={14}
+                  />
+                  {row.decision}
+                </span>
+              </td>
+              <td>{row.actorId}</td>
+              <td>{formatDate(row.decidedAt)}</td>
+            </tr>
+          ))}
 
-            {loading && (
-                <p role="status">Loading approval dashboard...</p>
-            )}
+          {!rows.length && (
+            <tr>
+              <td colSpan={8} className="ao-empty">
+                No approval or rejection decisions found
+                in this period.
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
+}
 
-            {error && (
-                <div className="risk-policy-error" role="alert">
-                    {error}
-                </div>
-            )}
+function Insights({ data }: { data: ApprovalOverview }) {
+  const { metrics, pendingRisk } = data;
+  const changes = metrics.changes;
 
-            {!loading && dashboard && (
-                <>
-                    <div className="approval-dashboard-metrics">
-                        <Metric
-                            title="Pending Workflows"
-                            value={dashboard.pendingWorkflows}
-                        />
+  return (
+    <div className="ao-insights">
+      <article>
+        <div className="ao-insight-icon ao-insight-red">
+          <Icon name="warning" size={25} />
+        </div>
+        <p>
+          <strong>{formatNumber(metrics.pending)}</strong>
+          {" "}approval workflows currently await review,
+          including <strong>{pendingRisk.critical}</strong> Critical
+          and <strong>{pendingRisk.high}</strong> High risk.
+        </p>
+      </article>
 
-                        <Metric
-                            title="In Review"
-                            value={dashboard.inReviewWorkflows}
-                            tone="info"
-                        />
+      <article>
+        <div className="ao-insight-icon ao-insight-green">
+          <Icon name="trending_up" size={25} />
+        </div>
+        <p>
+          {changes.approved === null
+            ? "Insufficient previous-period data to compare approvals."
+            : `Completed approvals ${changes.approved >= 0
+                ? "increased" : "decreased"} by ${Math.abs(
+                changes.approved
+              ).toFixed(1)}% compared with the previous period.`}
+        </p>
+      </article>
 
-                        <Metric
-                            title="Approved Workflows"
-                            value={dashboard.approvedWorkflows}
-                        />
+      <article>
+        <div className="ao-insight-icon ao-insight-blue">
+          <Icon name="schedule" size={25} />
+        </div>
+        <p>
+          {metrics.averageDecisionHours === null
+            ? "No completed workflows with valid decision timing were found."
+            : `Average completion time was ${metrics.averageDecisionHours.toFixed(
+                1
+              )} hours${changes.averageDecisionHours === null
+                ? "."
+                : ` (${changes.averageDecisionHours > 0
+                  ? "+" : ""}${changes.averageDecisionHours.toFixed(1)}% compared with the previous period).`}`}
+        </p>
+      </article>
+    </div>
+  );
+}
 
-                        <Metric
-                            title="Rejected Workflows"
-                            value={dashboard.rejectedWorkflows}
-                            tone="danger"
-                        />
+export default function ApprovalOverviewPage() {
+  const [days, setDays] = useState<"7" | "30" | "90">("30");
+  const [workflow, setWorkflow] = useState("all");
+  const [data, setData] = useState<ApprovalOverview | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-                        <Metric
-                            title="Escalated Workflows"
-                            value={dashboard.escalatedWorkflows}
-                        />
+  useEffect(() => {
+    const controller = new AbortController();
 
-                        <Metric
-                            title="High-Risk Pending Approvals"
-                            value={dashboard.highRiskPendingApprovals}
-                            tone="danger"
-                        />
+    setLoading(true);
+    setError("");
 
-                        <Metric
-                            title="Average Approval Completion"
-                            value={formatDuration(
-                                dashboard.averageApprovalCompletionMinutes
-                            )}
-                        />
-                    </div>
+    getApprovalOverview(days, workflow, controller.signal)
+      .then(result => {
+        if (controller.signal.aborted) return;
+        setData(result);
+      })
+      .catch(err => {
+        if (controller.signal.aborted) return;
+        setError(
+          err instanceof Error ? err.message :
+            "Unable to load approval overview."
+        );
+        setData(null);
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
+      });
 
-                    <div className="approval-dashboard-summary">
-                        <span>
-                            Total workflows:
-                            <strong>{dashboard.totalWorkflows}</strong>
-                        </span>
+    return () => controller.abort();
+  }, [days, workflow]);
 
-                        <span>
-                            Total decisions:
-                            <strong>{dashboard.totalDecisions}</strong>
-                        </span>
+  const dateRange = useMemo(() => {
+    if (!data) return "";
 
-                        <span>
-                            Completed approvals:
-                            <strong>{dashboard.completedApprovalCount}</strong>
-                        </span>
-                    </div>
+    const lastDate = new Date(`${data.period.end}T00:00:00Z`);
+    const end = new Date(lastDate);
+    const format = (date: Date) =>
+      date.toLocaleDateString("en-CA", {
+        timeZone: "UTC",
+        day: "2-digit",
+        month: "short",
+        year: "numeric"
+      });
 
-                    <section className="finops-panel">
-                        <div className="finops-panel-heading">
-                            <h2>Recent Approval Decisions</h2>
+    return `${format(new Date(`${data.period.start}T00:00:00Z`))} – ${format(end)}`;
+  }, [data]);
 
-                            <Link
-                                href={ROUTES.approvalsQueue}
-                                className="view-all-link"
-                            >
-                                Approval Queue
-                            </Link>
-                        </div>
+  return (
+    <main className="ao-page">
+      <div className="ao-breadcrumb">
+        <Link href="/approvals">Approval Management</Link>
+        <Icon name="chevron_right" size={19} />
+        <strong>Overview</strong>
+      </div>
 
-                        <div className="finops-activity-scroll">
-                            <table className="finops-activity-table">
-                                <thead>
-                                    <tr>
-                                        <th>Date</th>
-                                        <th>Workflow</th>
-                                        <th>Transaction</th>
-                                        <th>Reviewer</th>
-                                        <th>Stage</th>
-                                        <th>Decision</th>
-                                    </tr>
-                                </thead>
+      <div className="ao-heading">
+        <div className="ao-heading-text">
+          <div className="ao-title">
+            <Icon name="assignment_turned_in" size={38} />
+            <h1>Approval Management</h1>
+          </div>
+          <p>
+            Monitor approval activities, workload, and decision
+            outcomes across all approval workflows.
+          </p>
+        </div>
 
-                                <tbody>
-                                    {dashboard.recentDecisions.length === 0 ? (
-                                        <tr>
-                                            <td
-                                                colSpan={6}
-                                                className="finops-empty"
-                                            >
-                                                No approval decisions recorded.
-                                            </td>
-                                        </tr>
-                                    ) : (
-                                        dashboard.recentDecisions.map(
-                                            decision => (
-                                                <tr key={decision.decisionId}>
-                                                    <td>
-                                                        {formatDate(
-                                                            decision.decidedAt
-                                                        )}
-                                                    </td>
+        <div className="ao-filters">
+          <label>
+            <span>Reporting Period</span>
+            <select
+              value={days}
+              onChange={event =>
+                setDays(event.target.value as "7" | "30" | "90")
+              }
+            >
+              <option value="7">Last 7 Days</option>
+              <option value="30">Last 30 Days</option>
+              <option value="90">Last 90 Days</option>
+            </select>
+            <small>{dateRange}</small>
+          </label>
 
-                                                    <td>
-                                                        <Link
-                                                            href={ROUTES.approvalDetails(
-                                                                decision.workflowId
-                                                            )}
-                                                            className="approval-dashboard-link"
-                                                        >
-                                                            {decision.workflowId.slice(0, 12)}
-                                                        </Link>
-                                                    </td>
+          <label>
+            <span>Workflow</span>
+            <select
+              value={workflow}
+              onChange={event => setWorkflow(event.target.value)}
+            >
+              <option value="all">All Workflows</option>
+              <option value="Pending">Pending</option>
+              <option value="InReview">In Review</option>
+              <option value="Escalated">Escalated</option>
+              <option value="Approved">Approved</option>
+              <option value="Rejected">Rejected</option>
+              <option value="Cancelled">Cancelled</option>
+            </select>
+          </label>
+        </div>
+      </div>
 
-                                                    <td>
-                                                        <Link
-                                                            href={ROUTES.transactionDetails(
-                                                                decision.transactionId
-                                                            )}
-                                                            className="approval-dashboard-link"
-                                                        >
-                                                            {decision.transactionId.slice(0, 12)}
-                                                        </Link>
-                                                    </td>
+      {error && <div className="ao-error" role="alert">{error}</div>}
+      {loading && (
+        <div className="ao-loading" role="status">
+          Loading approval metrics...
+        </div>
+      )}
 
-                                                    <td>
-                                                        <strong>
-                                                            {decision.actorRole}
-                                                        </strong>
-                                                        <span className="approval-dashboard-actor">
-                                                            {decision.actorId}
-                                                        </span>
-                                                    </td>
+      {!loading && data && (
+        <>
+          <div className="ao-metrics">
+            <Metric
+              label="Pending Approvals"
+              value={formatNumber(data.metrics.pending)}
+              icon="pending_actions"
+              tone="blue"
+              change={data.metrics.changes.pending}
+              inverse
+            />
+            <Metric
+              label="Approved"
+              value={formatNumber(data.metrics.approved)}
+              icon="check_circle"
+              tone="green"
+              change={data.metrics.changes.approved}
+            />
+            <Metric
+              label="Rejected"
+              value={formatNumber(data.metrics.rejected)}
+              icon="cancel"
+              tone="red"
+              change={data.metrics.changes.rejected}
+              inverse
+            />
+            <Metric
+              label="Avg. Decision Time"
+              value={
+                data.metrics.averageDecisionHours === null
+                  ? "—"
+                  : `${data.metrics.averageDecisionHours.toFixed(1)} hours`
+              }
+              icon="schedule"
+              tone="blue"
+              change={data.metrics.changes.averageDecisionHours}
+              inverse
+            />
+          </div>
 
-                                                    <td>
-                                                        {decision.stageNumber}
-                                                    </td>
+          <div className="ao-chart-grid">
+            <Panel title="Approval Volume Trend" icon="bar_chart">
+              <VolumeTrend rows={data.trend} />
+            </Panel>
 
-                                                    <td>
-                                                        <DecisionType
-                                                            decision={decision}
-                                                        />
-                                                    </td>
-                                                </tr>
-                                            )
-                                        )
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
-                    </section>
-                </>
-            )}
-        </section>
-    );
+            <Panel title="Approvals by Workflow" icon="description">
+              <WorkflowDonut rows={data.byWorkflow} />
+            </Panel>
+          </div>
+
+          <div className="ao-bottom-grid">
+            <Panel title="Recent Approvals" icon="format_list_bulleted">
+              <RecentDecisions rows={data.recentDecisions} />
+            </Panel>
+
+            <Panel title="Key Insights" icon="lightbulb">
+              <Insights data={data} />
+            </Panel>
+          </div>
+        </>
+      )}
+    </main>
+  );
 }

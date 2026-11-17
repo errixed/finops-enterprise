@@ -110,10 +110,56 @@ export async function initializeTransactionIndexes() {
     console.log("Transaction indexes initialized.");
 }
 
+export async function initializeAccountBalanceHistoryIndexes() {
+    const collection = getDatabase().collection("account_balance_history");
+
+    await collection.createIndexes([
+        {
+            key: { accountId: 1, occurredAt: 1 },
+            name: "idx_balance_history_account_date"
+        },
+        {
+            key: { snapshotId: 1 },
+            name: "idx_balance_snapshot_unique",
+            unique: true
+        }
+    ]);
+
+    console.log("Account balance history indexes initialized.");
+}
+
+export async function initializeAccountAuditIndexes() {
+    const collection = getDatabase().collection("account_audit_events");
+
+    await collection.createIndexes([
+        {
+            key: { accountId: 1, occurredAt: -1 },
+            name: "idx_account_audit_date"
+        },
+        {
+            key: { eventId: 1 },
+            name: "idx_account_audit_event_unique",
+            unique: true
+        }
+    ]);
+
+    console.log("Account audit indexes initialized.");
+}
+
+
 export async function initializeIndexes() {
     await initializeClientIndexes();
     await initializeAccountIndexes();
     await initializeTransactionIndexes();
 
+    await initializeAccountBalanceHistoryIndexes();
+    await initializeAccountAuditIndexes();
+    await getDatabase().collection("custom_risk_rules").createIndex(
+        { ruleId: 1 },
+        {
+            unique: true,
+            name: "idx_custom_risk_rule_id"
+        }
+    );
     console.log("All MongoDB indexes initialized.");
 }

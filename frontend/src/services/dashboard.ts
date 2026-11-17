@@ -71,3 +71,38 @@ export async function getDashboardSummary(
 
     return response.json();
 }
+
+export interface DashboardTrendPoint {
+    date: string;
+    transactionCount: number;
+    assessmentCount: number;
+    highRiskCount: number;
+}
+
+export interface DashboardTrend {
+    days: number;
+    startDate: string;
+    endDate: string;
+    points: DashboardTrendPoint[];
+}
+
+export async function getDashboardTrend(
+    days: 7 | 30 | 90,
+    signal?: AbortSignal
+): Promise<DashboardTrend> {
+    const response = await fetch(
+        `${API_BASE_URL}${API_ROUTES.dashboard}/trend?days=${days}`,
+        {
+            cache: "no-store",
+            signal
+        }
+    );
+
+    if (!response.ok) {
+        throw new Error(
+            `Unable to load transaction trend: HTTP ${response.status}`
+        );
+    }
+
+    return response.json();
+}

@@ -1,0 +1,653 @@
+
+.ran-page {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: 100%;
+  min-width: 0;
+  color: #102d65;
+  font-size: 12px;
+}
+
+.ran-page,
+.ran-page * {
+  box-sizing: border-box;
+}
+
+.ran-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  font-weight: 750;
+}
+
+.ran-breadcrumb a {
+  color: #284e83;
+  text-decoration: none;
+}
+
+.ran-breadcrumb strong {
+  color: #102e7b;
+}
+
+.ran-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.ran-title {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+
+.ran-title > .material-symbols-rounded {
+  color: #0755db;
+}
+
+.ran-title h1 {
+  margin: 0;
+  color: #0c2d7c;
+  font-size: 28px;
+  font-weight: 900;
+}
+
+.ran-filters {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+
+.ran-filters label {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 205px;
+  font-weight: 850;
+  color: #183b73;
+}
+
+.ran-filters select {
+  min-width: 205px;
+  min-height: 39px;
+  padding: 8px 12px;
+  border: 1px solid #a7c4e8;
+  border-radius: 8px;
+  color: #102f68;
+  background: linear-gradient(#fff, #f4f9ff);
+  font: inherit;
+  font-weight: 700;
+}
+
+.ran-filters small {
+  color: #687f9b;
+  font-size: 10px;
+  font-weight: 500;
+}
+
+.ran-description {
+  margin: 0;
+  color: #48648b;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.ran-metrics {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.ran-metric {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  min-height: 94px;
+  padding: 14px;
+  border: 1px solid #adc8ee;
+  border-radius: 10px;
+  background: linear-gradient(120deg, #fff, #eaf3ff);
+  overflow: hidden;
+}
+
+.ran-metric-icon {
+  display: grid;
+  place-items: center;
+  width: 43px;
+  height: 43px;
+  flex: 0 0 43px;
+  border-radius: 50%;
+  background: #e2efff;
+  color: #0853d3;
+}
+
+.ran-metric-body {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+  flex: 1;
+}
+
+.ran-metric-body > span {
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.ran-metric-value {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.ran-metric-value strong {
+  color: #10275c;
+  font-size: clamp(23px, 2.2vw, 33px);
+  font-weight: 900;
+  line-height: 1;
+}
+
+.ran-metric-value small {
+  font-size: 11px;
+}
+
+.ran-metric-delta {
+  min-height: 17px;
+}
+
+.ran-up,
+.ran-down {
+  display: inline-block;
+  padding: 3px 7px;
+  border-radius: 16px;
+  font-size: 10px;
+  font-weight: 850;
+}
+
+.ran-up {
+  background: #dff7e6;
+  color: #17833b;
+}
+
+.ran-down {
+  background: #ffe9e8;
+  color: #b72e31;
+}
+
+.ran-no-comparison {
+  color: #7a8da7;
+  font-size: 10px;
+}
+
+.ran-metric-red {
+  background: linear-gradient(120deg, #fff, #fff0f0);
+}
+
+.ran-metric-red .ran-metric-icon {
+  color: #ee343c;
+  background: #ffe5e8;
+}
+
+.ran-metric-yellow {
+  background: linear-gradient(120deg, #fff, #fff8e6);
+}
+
+.ran-metric-yellow .ran-metric-icon {
+  color: #e7a600;
+  background: #fff0c3;
+}
+
+.ran-metric-green {
+  background: linear-gradient(120deg, #fff, #ecfff2);
+}
+
+.ran-metric-green .ran-metric-icon {
+  color: #109949;
+  background: #ddf8e3;
+}
+
+.ran-panel {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border: 1px solid #adcaed;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.ran-panel-header {
+  display: flex;
+  align-items: center;
+  padding: 11px 13px;
+  min-height: 43px;
+  border-bottom: 1px solid #c7dbf4;
+  background: linear-gradient(105deg, #e0edff, #f4f9ff);
+}
+
+.ran-panel-header h2 {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 0;
+  color: #0640ad;
+  font-size: 16px;
+  font-weight: 850;
+}
+
+.ran-panel-header h2 > .material-symbols-rounded {
+  color: #0752d0;
+}
+
+.ran-panel-content {
+  flex: 1;
+  min-width: 0;
+  padding: 13px;
+}
+
+.ran-chart-grid {
+  display: grid;
+  grid-template-columns:
+    minmax(0, 1.55fr)
+    minmax(0, 1fr)
+    minmax(0, .95fr);
+  gap: 12px;
+  align-items: stretch;
+}
+
+.ran-bottom-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr);
+  gap: 12px;
+  align-items: stretch;
+}
+
+.ran-trend {
+  min-width: 0;
+}
+
+.ran-trend svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.ran-legend {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 13px;
+  margin-top: 6px;
+}
+
+.ran-legend > span {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: #27446e;
+  font-size: 10px;
+}
+
+.ran-legend i {
+  display: inline-block;
+  width: 11px;
+  height: 11px;
+  border-radius: 2px;
+}
+
+.ran-legend i.ran-line-legend {
+  width: 20px;
+  height: 3px;
+  background: #0754dc;
+}
+
+.ran-distribution {
+  display: grid;
+  grid-template-columns: minmax(130px, 1fr) minmax(125px, 1fr);
+  align-items: center;
+  gap: 15px;
+  min-height: 240px;
+}
+
+.ran-donut {
+  display: grid;
+  place-items: center;
+  position: relative;
+  width: 100%;
+  max-width: 240px;
+  aspect-ratio: 1;
+  margin: auto;
+  border-radius: 50%;
+}
+
+.ran-donut-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  width: 57%;
+  height: 57%;
+  border-radius: 50%;
+  background: #fff;
+  text-align: center;
+}
+
+.ran-donut-center strong {
+  font-size: clamp(19px, 2vw, 27px);
+  font-weight: 900;
+}
+
+.ran-donut-center span {
+  font-size: 11px;
+}
+
+.ran-distribution-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.ran-distribution-legend > div {
+  display: grid;
+  grid-template-columns: 12px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 7px;
+  font-size: 11px;
+}
+
+.ran-distribution-legend i {
+  width: 11px;
+  height: 11px;
+  border-radius: 3px;
+}
+
+.ran-distribution-legend strong {
+  font-weight: 850;
+  white-space: nowrap;
+}
+
+.ran-industries {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 14px;
+  min-height: 235px;
+}
+
+.ran-industry-row {
+  display: grid;
+  grid-template-columns: minmax(75px, 105px) minmax(0, 1fr) 32px;
+  align-items: center;
+  gap: 10px;
+}
+
+.ran-industry-row > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.ran-industry-row > strong {
+  text-align: right;
+  font-size: 11px;
+}
+
+.ran-industry-track {
+  height: 21px;
+  background: #edf3fa;
+  overflow: hidden;
+}
+
+.ran-industry-bar {
+  display: flex;
+  height: 100%;
+}
+
+.ran-industry-bar > div {
+  height: 100%;
+}
+
+.ran-chart-note {
+  margin: 11px 0 0;
+  color: #69809f;
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.ran-table-scroll {
+  overflow-x: auto;
+  width: 100%;
+}
+
+.ran-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+}
+
+.ran-table th {
+  padding: 10px 9px;
+  color: #fff;
+  background: linear-gradient(90deg, #0d3183, #071d58);
+  text-align: left;
+  font-weight: 850;
+  white-space: nowrap;
+}
+
+.ran-table td {
+  padding: 9px;
+  border-bottom: 1px solid #d7e4f4;
+  vertical-align: middle;
+}
+
+.ran-table tbody tr:hover td {
+  background: #eef6ff;
+}
+
+.ran-rule-link {
+  color: #0754bd;
+  font-weight: 850;
+}
+
+.ran-jurisdictions {
+  display: grid;
+  grid-template-columns: minmax(160px, .8fr) minmax(0, 1.2fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.ran-jurisdiction-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  padding: 8px 2px;
+}
+
+.ran-jurisdiction-title {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: #174581;
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.ran-jurisdiction-item {
+  display: grid;
+  grid-template-columns: minmax(50px, 90px) minmax(0, 1fr) 25px;
+  align-items: center;
+  gap: 7px;
+}
+
+.ran-jurisdiction-item > span {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 10px;
+}
+
+.ran-jurisdiction-item > div {
+  height: 15px;
+  background: #e5edf8;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.ran-jurisdiction-item i {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #155adb, #78b7ff);
+}
+
+.ran-jurisdiction-item strong {
+  text-align: right;
+  font-size: 11px;
+}
+
+.ran-empty {
+  padding: 20px 12px;
+  text-align: center;
+  color: #7184a0;
+}
+
+.ran-loading,
+.ran-error {
+  padding: 14px;
+  border: 1px solid #b8d0f0;
+  border-radius: 8px;
+  background: #f1f7ff;
+  color: #245184;
+}
+
+.ran-error {
+  border-color: #e8b0b8;
+  background: #fff3f4;
+  color: #ae2432;
+}
+
+@media (max-width: 1450px) {
+  .ran-chart-grid {
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  }
+
+  .ran-chart-grid > :last-child {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 1120px) {
+  .ran-metrics {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .ran-bottom-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 850px) {
+  .ran-chart-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .ran-chart-grid > :last-child {
+    grid-column: auto;
+  }
+}
+
+@media (max-width: 650px) {
+  .ran-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .ran-filters,
+  .ran-filters label,
+  .ran-filters select {
+    width: 100%;
+  }
+
+  .ran-distribution,
+  .ran-jurisdictions {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 430px) {
+  .ran-metrics {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.ran-world-map {
+  width: 100%;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.ran-world-map svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 290px;
+}
+
+.ran-map-legend {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.ran-map-legend span {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: #395779;
+  font-size: 10px;
+}
+
+.ran-map-legend i {
+  width: 11px;
+  height: 11px;
+  display: inline-block;
+  border-radius: 2px;
+}
+
+.ran-jurisdictions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+  align-items: center;
+  gap: 14px;
+}
+
+@media (max-width: 800px) {
+  .ran-jurisdictions {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.risk-map-country {
+  transition: fill 0.15s ease;
+}
+
+.risk-map-country:hover {
+  filter: brightness(0.8);
+  cursor: pointer;
+}
+
+.risk-map-country:focus {
+  outline: none;
+}

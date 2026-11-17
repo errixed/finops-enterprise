@@ -17,6 +17,8 @@ export const API_ROUTES = Object.freeze({
 });
 
 export const ROUTES = Object.freeze({
+    riskAlerts: "/risk/alerts",
+    transactionHistory: "/transactions/history",
     dashboard: "/",
     clients: "/clients",
     clientRegistration: "/clients/new",
@@ -54,7 +56,14 @@ export const PAGINATION = Object.freeze({
 
 export const ENUMS = Object.freeze({
     CLIENT_STATUSES: ["Active", "Inactive", "Suspended"],
-    ACCOUNT_TYPES: ["Operating", "Savings", "Investment"],
+    ACCOUNT_TYPES: [
+        "Operating",
+        "Trade Finance",
+        "Foreign Currency",
+        "Savings",
+        "Investment",
+        "Escrow"
+    ],
     ACCOUNT_STATUSES: ["Active", "Frozen", "Closed"],
     CURRENCIES: ["CAD", "USD"],
     TRANSACTION_STATUSES: ["Pending", "Processing", "Completed", "Rejected"]

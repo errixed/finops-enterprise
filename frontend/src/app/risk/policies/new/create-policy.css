@@ -1,0 +1,626 @@
+.cp-page {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  width: 100%;
+  min-width: 0;
+  color: #0b285b;
+  font-size: 13px;
+}
+
+.cp-page,
+.cp-page * {
+  box-sizing: border-box;
+}
+
+.cp-breadcrumb,
+.cp-breadcrumb a {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: #12417f;
+  font-size: 12px;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.cp-breadcrumb strong {
+  color: #10285e;
+}
+
+.cp-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.cp-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.cp-title > .material-symbols-rounded {
+  color: #0755db;
+}
+
+.cp-title h1 {
+  margin: 0;
+  color: #092d7e;
+  font-size: 29px;
+  font-weight: 900;
+}
+
+.cp-title strong {
+  display: block;
+  margin-top: 5px;
+  font-size: 13px;
+  color: #15366c;
+}
+
+.cp-description {
+  margin: 0;
+  color: #435b7f;
+  line-height: 1.5;
+}
+
+.cp-progress {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.cp-progress-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.cp-progress-item > .material-symbols-rounded {
+  color: #8da7ce;
+}
+
+.cp-progress-item button {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 0;
+  border: 0;
+  color: #49638a;
+  background: transparent;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 750;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.cp-progress-item button:disabled {
+  cursor: default;
+}
+
+.cp-progress-item button.active {
+  color: #083b9e;
+  font-weight: 900;
+}
+
+.cp-progress-number {
+  display: grid;
+  place-items: center;
+  width: 41px;
+  height: 41px;
+  border-radius: 50%;
+  color: #425f88;
+  background: #dfe8f4;
+  border: 1px solid #c6d6e9;
+  font-size: 19px;
+  font-weight: 900;
+}
+
+.cp-progress-item button.active .cp-progress-number {
+  color: white;
+  border-color: #0756df;
+  background: linear-gradient(#158aff, #063bcb);
+}
+
+.cp-progress-item button.complete .cp-progress-number {
+  background: #0da047;
+  border-color: #0da047;
+  color: white;
+}
+
+.cp-panel {
+  min-width: 0;
+  border: 1px solid #b2cef3;
+  border-radius: 11px;
+  background: #fff;
+  overflow: hidden;
+}
+
+.cp-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 16px;
+  min-height: 54px;
+  border-bottom: 1px solid #c7dbf4;
+  background: linear-gradient(100deg, #e4f1ff, #d6e7fb);
+}
+
+.cp-panel-header h2 {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  color: #073dae;
+  font-size: 19px;
+  font-weight: 900;
+}
+
+.cp-panel-header h2 > .material-symbols-rounded {
+  color: #0752d0;
+}
+
+.cp-panel-body {
+  padding: 18px;
+}
+
+.cp-information-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  gap: 30px;
+}
+
+.cp-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.cp-field {
+  display: grid;
+  grid-template-columns: minmax(155px, 36%) minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+  font-weight: 850;
+}
+
+.cp-field em {
+  color: #d42534;
+  font-style: normal;
+}
+
+.cp-field input,
+.cp-field select,
+.cp-description-field textarea {
+  width: 100%;
+  min-width: 0;
+  min-height: 42px;
+  padding: 10px 12px;
+  border: 1px solid #9dbbe4;
+  border-radius: 8px;
+  background: linear-gradient(#fff, #fafdff);
+  color: #12315e;
+  font: inherit;
+  font-weight: 500;
+}
+
+.cp-field input:focus,
+.cp-field select:focus,
+.cp-description-field textarea:focus {
+  outline: none;
+  border-color: #076de4;
+  box-shadow: 0 0 0 3px rgba(7, 109, 228, 0.1);
+}
+
+.cp-field input[readonly] {
+  background: #f2f6fd;
+  color: #3c587e;
+}
+
+.cp-description-field {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  position: relative;
+  font-weight: 850;
+}
+
+.cp-description-field textarea {
+  flex: 1;
+  min-height: 265px;
+  resize: vertical;
+  line-height: 1.6;
+}
+
+.cp-description-field small {
+  position: absolute;
+  right: 13px;
+  bottom: 12px;
+  color: #526d90;
+  font-weight: 500;
+}
+
+.cp-inline-info {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 12px 14px;
+  border: 1px solid #b6d8fb;
+  border-radius: 8px;
+  background: linear-gradient(100deg, #edf7ff, #dceeff);
+  color: #17447d;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.cp-inline-info > .material-symbols-rounded {
+  flex-shrink: 0;
+  color: #0763d0;
+}
+
+.cp-panel-actions,
+.cp-rule-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.cp-panel-actions button,
+.cp-rule-actions button,
+.cp-threshold-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 12px;
+  min-height: 35px;
+  border: 1px solid #9dbce7;
+  border-radius: 7px;
+  background: #fff;
+  color: #15407e;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.cp-panel-actions button:disabled,
+.cp-rule-actions button:disabled {
+  opacity: .5;
+  cursor: not-allowed;
+}
+
+.cp-table-scroll {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.cp-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.cp-config-table {
+  min-width: 880px;
+}
+
+.cp-table th {
+  padding: 11px 10px;
+  background: linear-gradient(95deg, #103180, #071d5c);
+  color: #fff;
+  text-align: left;
+  font-weight: 850;
+  white-space: nowrap;
+}
+
+.cp-table td {
+  padding: 9px 10px;
+  border-bottom: 1px solid #dce7f5;
+  vertical-align: middle;
+}
+
+.cp-table tbody tr:hover td {
+  background: #f2f8ff;
+}
+
+.cp-table input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: #075be1;
+}
+
+.cp-rule-id {
+  color: #0754c5;
+  font-weight: 850;
+  white-space: nowrap;
+}
+
+.cp-points-input,
+.cp-threshold-edit input,
+.cp-range-table input {
+  width: 82px;
+  min-height: 34px;
+  padding: 6px 8px;
+  border: 1px solid #adc6e8;
+  border-radius: 7px;
+  background: #fafdff;
+  color: #112b5c;
+  font: inherit;
+  font-weight: 800;
+}
+
+.cp-threshold-edit {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.cp-threshold-edit input {
+  width: 105px;
+}
+
+.cp-threshold-edit span {
+  color: #69819e;
+  font-size: 11px;
+}
+
+.cp-included,
+.cp-draft,
+.cp-level,
+.cp-point-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border-radius: 20px;
+  font-weight: 850;
+  white-space: nowrap;
+}
+
+.cp-included {
+  background: #d7f9dd;
+  color: #147d3b;
+}
+
+.cp-draft {
+  color: #926100;
+  background: #fff0a9;
+}
+
+.cp-rule-actions button {
+  padding: 5px 7px;
+  min-height: 30px;
+}
+
+.cp-threshold-section {
+  border: 1px solid #bdd3ed;
+  border-radius: 9px;
+  overflow: hidden;
+}
+
+.cp-threshold-toggle {
+  justify-content: space-between;
+  width: 100%;
+  min-height: 45px;
+  border: 0;
+  border-radius: 0;
+  background: #e9f3ff;
+  color: #0d3d8e;
+}
+
+.cp-range-table input {
+  width: 100px;
+}
+
+.cp-review-grid {
+  display: grid;
+  grid-template-columns: minmax(0, .85fr) minmax(0, 1.65fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.cp-review-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+
+.cp-detail-row {
+  display: grid;
+  grid-template-columns: minmax(120px, 38%) minmax(0, 1fr);
+  gap: 10px;
+  padding: 9px 2px;
+  border-bottom: 1px solid #dbe8f6;
+}
+
+.cp-detail-row > span {
+  color: #123366;
+  font-weight: 850;
+}
+
+.cp-detail-row > strong {
+  overflow-wrap: anywhere;
+  font-weight: 650;
+}
+
+.cp-review-table {
+  min-width: 620px;
+}
+
+.cp-point-badge {
+  min-width: 60px;
+  border-radius: 7px;
+  color: #102b56;
+  background: #dcecff;
+}
+
+.cp-scoring-grid {
+  display: grid;
+  grid-template-columns: minmax(260px, 1.1fr) minmax(0, 1fr);
+  gap: 14px;
+  align-items: center;
+}
+
+.cp-score-table th {
+  background: #e6f0ff;
+  color: #103672;
+}
+
+.cp-level-low {
+  background: #d9f9dd;
+  color: #148037;
+}
+
+.cp-level-medium {
+  background: #fff0aa;
+  color: #9f6b00;
+}
+
+.cp-level-high {
+  background: #ffd6d2;
+  color: #b7252e;
+}
+
+.cp-level-critical {
+  background: #f7b8b8;
+  color: #a51320;
+}
+
+.cp-footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+  padding-top: 16px;
+  border-top: 1px solid #c7d9f2;
+}
+
+.cp-footer > div {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.cp-primary,
+.cp-secondary {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  gap: 9px;
+  min-height: 42px;
+  padding: 10px 17px;
+  border: 1px solid #9dbbe8;
+  border-radius: 8px;
+  color: #133b7e;
+  background: #fff;
+  text-decoration: none;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.cp-primary {
+  color: #fff;
+  border-color: #0756cf;
+  background: linear-gradient(#148bff, #0845ce);
+}
+
+.cp-primary:disabled,
+.cp-secondary:disabled {
+  opacity: .5;
+  cursor: not-allowed;
+}
+
+.cp-error {
+  display: flex;
+  gap: 9px;
+  align-items: center;
+  padding: 11px 14px;
+  border: 1px solid #ebafba;
+  border-radius: 8px;
+  color: #af2634;
+  background: #fff1f2;
+  font-weight: 750;
+}
+
+@media (max-width: 1200px) {
+  .cp-information-grid,
+  .cp-review-grid,
+  .cp-scoring-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .cp-description-field textarea {
+    min-height: 180px;
+  }
+}
+
+@media (max-width: 750px) {
+  .cp-field {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .cp-progress {
+    justify-content: flex-start;
+  }
+
+  .cp-progress-item button {
+    font-size: 11px;
+  }
+
+  .cp-progress-number {
+    width: 32px;
+    height: 32px;
+  }
+
+  .cp-footer {
+    align-items: stretch;
+  }
+
+  .cp-footer > div,
+  .cp-footer > div > * {
+    flex: 1;
+  }
+}
+.cp-config-table th,
+.cp-config-table td {
+  vertical-align: middle;
+}
+
+.cp-config-table .cp-level {
+  min-width: 90px;
+  padding: 6px 11px;
+  font-size: 11px;
+  font-weight: 850;
+}
+
+.cp-config-table .cp-points-input {
+  width: 90px;
+}
+
+.cp-config-table .cp-threshold-edit input {
+  width: 115px;
+}
+
+.cp-config-table .cp-included {
+  white-space: nowrap;
+}
+
+.cp-config-table th:nth-child(5),
+.cp-config-table td:nth-child(5) {
+  text-align: center;
+}

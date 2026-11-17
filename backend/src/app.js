@@ -13,7 +13,10 @@ app.use(
         origin: environment.frontendOrigin,
     })
 );
-app.use(express.json());
+app.use(express.json({
+    type: "application/json",
+    limit: "1mb"
+}));
 app.use(requestLogger);
 app.use("/api/v1", routes);
 app.use(notFoundMiddleware);

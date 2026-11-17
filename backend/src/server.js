@@ -3,7 +3,8 @@ import { environment } from "./config/environment.js";
 import {
     connectMongoDB,
     initializeCollections,
-    closeMongoDB
+    closeMongoDB,
+    getDatabase
 } from "./config/mongodb.js";
 import {
     initializeValidators
@@ -26,21 +27,41 @@ import {
 import {
     initializeApprovalDecisionIndexes
 } from "./repositories/approval-decision.repository.js";
+import {
+    initializeAccountBalanceHistoryIndexes,
+    initializeAccountAuditIndexes
+} from "../scripts/initialize-indexes.js";
 
 async function startServer() {
     try {
         await connectMongoDB();
 
         await initializeCollections();
-
+        await initializeAccountBalanceHistoryIndexes();
+        await initializeAccountAuditIndexes();
         await createRiskAssessmentIndexes();
+
+        const database = getDatabase();
+
+        await database.collection("risk_cases").createIndex(
+            { caseId: 1 },
+            { unique: true }
+        );
+
+        await database.collection("risk_cases").createIndex(
+            { createdAt: -1, status: 1 }
+        );
+
+        await database.collection("risk_case_events").createIndex(
+            { caseId: 1, createdAt: 1 }
+        );
 
         await initializeValidators();
 
         await initializeRiskPolicies();
 
         await initializeApprovalPolicies();
-        
+
         await initializeApprovalWorkflowIndexes();
 
         await initializeApprovalDecisionIndexes();

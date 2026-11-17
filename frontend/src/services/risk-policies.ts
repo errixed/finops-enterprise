@@ -15,13 +15,42 @@ export type RiskLevel =
     | "Medium"
     | "High"
     | "Critical";
+export type CustomRuleField =
+    | "amount"
+    | "recentCount"
+    | "recentVolume"
+    | "balancePercent"
+    | "sourceClientStatus"
+    | "destinationClientStatus"
+    | "sourceAccountStatus"
+    | "destinationAccountStatus";
+
+export type CustomRuleOperator =
+    | "gte"
+    | "gt"
+    | "eq"
+    | "ne";
 
 export interface RiskRule {
     ruleId: string;
     points: number;
     threshold?: number;
+    name?: string;
+    field?: CustomRuleField;
+    operator?: CustomRuleOperator;
+    value?: number | string;
 }
 
+export interface CustomRuleDefinition {
+    ruleId: string;
+    name: string;
+    points: number;
+    field: CustomRuleField;
+    operator: CustomRuleOperator;
+    value: number | string;
+    createdAt?: string;
+    updatedAt?: string;
+}
 export interface RiskThreshold {
     level: RiskLevel;
     min: number;
@@ -42,6 +71,9 @@ export interface RiskPolicy {
     updatedAt: string;
     effectiveFrom: string | null;
     effectiveTo: string | null;
+    policyName?: string;
+    description?: string;
+    plannedEffectiveFrom?: string;
 }
 
 export interface PolicyConfiguration {
@@ -93,10 +125,19 @@ export function getRiskPolicy(id: string) {
     );
 }
 
+
+export interface NewRiskPolicyInput {
+    policyId: string;
+    currency: PolicyCurrency;
+    policyName: string;
+    description: string;
+    plannedEffectiveFrom: string;
+    rules: RiskRule[];
+    thresholds: RiskThreshold[];
+}
+
 export function createRiskPolicy(
-    policyId: string,
-    currency: PolicyCurrency,
-    configuration: PolicyConfiguration
+    input: NewRiskPolicyInput
 ) {
     return request<RiskPolicy>(
         API_ROUTES.riskPolicies,
@@ -105,14 +146,11 @@ export function createRiskPolicy(
             headers: {
                 "X-Actor-Id": POLICY_ACTOR_ID
             },
-            body: JSON.stringify({
-                policyId,
-                currency,
-                ...configuration
-            })
+            body: JSON.stringify(input)
         }
     );
 }
+
 
 export function updateRiskPolicy(
     id: string,
@@ -140,4 +178,16 @@ export function activateRiskPolicy(id: string) {
             }
         }
     );
+}
+
+export function copyRiskPolicy(policy: RiskPolicy) {
+    return createRiskPolicy({
+        policyId: policy.policyId,
+        currency: policy.currency,
+        policyName: policy.policyName ?? policy.policyId,
+        description: policy.description ?? "",
+        plannedEffectiveFrom: new Date().toISOString().slice(0, 10),
+        rules: policy.rules.map(rule => ({ ...rule })),
+        thresholds: policy.thresholds.map(threshold => ({ ...threshold }))
+    });
 }

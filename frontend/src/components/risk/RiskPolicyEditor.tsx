@@ -7,7 +7,7 @@ import {
     RiskLevel,
     RiskRule
 } from "@/services/risk-policies";
-
+import CustomRulesManager from "./CustomRulesManager";
 const RULE_LABELS: Record<string, string> = {
     "RISK-001": "Transfer amount threshold 1",
     "RISK-002": "Transfer amount threshold 2",
@@ -38,14 +38,52 @@ export function validatePolicyConfiguration(
 ): string | null {
     const { rules, thresholds } = configuration;
 
+    const seeded = rules.filter(rule =>
+        /^RISK-00[1-8]$/.test(rule.ruleId)
+    );
+
+    const custom = rules.filter(rule =>
+        rule.ruleId.startsWith("CUSTOM-")
+    );
+
     if (
-        rules.length !== 8 ||
-        new Set(rules.map(rule => rule.ruleId)).size !== 8
+        seeded.length !== 8 ||
+        new Set(seeded.map(rule => rule.ruleId)).size !== 8
     ) {
-        return "All eight unique risk rules are required.";
+        return "All eight seeded rules are required.";
+    }
+
+    if (
+        rules.length !== seeded.length + custom.length ||
+        custom.length > 50 ||
+        new Set(rules.map(rule => rule.ruleId)).size !== rules.length
+    ) {
+        return "Invalid or duplicate risk rules.";
     }
 
     for (const rule of rules) {
+        if (rule.ruleId.startsWith("CUSTOM-")) {
+            if (
+                !/^CUSTOM-[A-Z0-9-]{1,48}$/.test(rule.ruleId) ||
+                !rule.name?.trim() ||
+                !rule.field ||
+                !rule.operator ||
+                rule.value === undefined
+            ) {
+                return `${rule.ruleId}: incomplete custom rule.`;
+            }
+
+            if (
+                !Number.isInteger(rule.points) ||
+                rule.points < 0 ||
+                rule.points > 100
+            ) {
+                return `${rule.ruleId}: invalid points.`;
+            }
+
+            continue;
+        }
+
         if (!Object.hasOwn(RULE_LABELS, rule.ruleId)) {
             return `Unknown rule: ${rule.ruleId}`;
         }
@@ -151,23 +189,6 @@ export default function RiskPolicyEditor({
     const [validationError, setValidationError] =
         useState("");
 
-    function updateRule(
-        ruleId: string,
-        field: "points" | "threshold",
-        raw: string
-    ) {
-        const value = Number(raw);
-
-        setConfiguration(previous => ({
-            ...previous,
-            rules: previous.rules.map(rule =>
-                rule.ruleId === ruleId
-                    ? { ...rule, [field]: value }
-                    : rule
-            )
-        }));
-    }
-
     function updateThreshold(
         level: RiskLevel,
         field: "min" | "max",
@@ -210,8 +231,8 @@ export default function RiskPolicyEditor({
                 </div>
 
                 <p className="risk-policy-help">
-                    Configure each rule's point contribution and
-                    applicable threshold. All eight rules are required.
+                    The eight seeded risk rules are mandatory and cannot be modified
+                    or removed. You can configure optional custom rules below.
                 </p>
 
                 <div className="dashboard-table-wrap">
@@ -226,83 +247,68 @@ export default function RiskPolicyEditor({
                         </thead>
 
                         <tbody>
-                            {configuration.rules.map(rule => {
-                                const hasThreshold =
-                                    !["RISK-007", "RISK-008"]
-                                        .includes(rule.ruleId);
+                            {configuration.rules
+                                .filter(rule => /^RISK-00[1-8]$/.test(rule.ruleId))
+                                .map(rule => {
+                                    const hasThreshold =
+                                        !["RISK-007", "RISK-008"]
+                                            .includes(rule.ruleId);
 
-                                return (
-                                    <tr key={rule.ruleId}>
-                                        <td>
-                                            <strong>{rule.ruleId}</strong>
-                                        </td>
+                                    return (
+                                        <tr key={rule.ruleId}>
+                                            <td>
+                                                <strong>{rule.ruleId}</strong>
+                                            </td>
 
-                                        <td>
-                                            {RULE_LABELS[rule.ruleId]}
-                                        </td>
+                                            <td>
+                                                {RULE_LABELS[rule.ruleId]}
+                                            </td>
 
-                                        <td>
-                                            <input
-                                                aria-label={`${rule.ruleId} points`}
-                                                type="number"
-                                                min={0}
-                                                max={100}
-                                                step={1}
-                                                required
-                                                value={rule.points}
-                                                onChange={event =>
-                                                    updateRule(
-                                                        rule.ruleId,
-                                                        "points",
-                                                        event.target.value
-                                                    )
-                                                }
-                                            />
-                                        </td>
-
-                                        <td>
-                                            {hasThreshold ? (
-                                                <label className="risk-policy-threshold">
-                                                    <input
-                                                        aria-label={`${rule.ruleId} threshold`}
-                                                        type="number"
-                                                        min={1}
-                                                        max={
-                                                            rule.ruleId === "RISK-006"
-                                                                ? 100
-                                                                : undefined
-                                                        }
-                                                        step={1}
-                                                        required
-                                                        value={rule.threshold ?? 0}
-                                                        onChange={event =>
-                                                            updateRule(
-                                                                rule.ruleId,
-                                                                "threshold",
-                                                                event.target.value
-                                                            )
-                                                        }
-                                                    />
-                                                    {rule.ruleId === "RISK-006"
-                                                        ? "%"
-                                                        : MONETARY_RULES.has(
-                                                            rule.ruleId
-                                                        )
-                                                            ? "currency units"
-                                                            : "transactions"}
-                                                </label>
-                                            ) : (
-                                                "Not applicable"
-                                            )}
-                                        </td>
-                                    </tr>
-                                );
-                            })}
+                                            <td>
+                                                <td>
+                                                    <strong>{rule.points}</strong>
+                                                </td>
+                                            </td>
+                                            <td>
+                                                {hasThreshold ? (
+                                                    <strong>
+                                                        {rule.threshold}
+                                                        {" "}
+                                                        {rule.ruleId === "RISK-006"
+                                                            ? "%"
+                                                            : MONETARY_RULES.has(rule.ruleId)
+                                                                ? "currency units"
+                                                                : "transactions"}
+                                                    </strong>
+                                                ) : (
+                                                    <strong>Not applicable</strong>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
                         </tbody>
                     </table>
                 </div>
             </section>
+            <CustomRulesManager
+                selected={configuration.rules.filter(rule =>
+                    rule.ruleId.startsWith("CUSTOM-")
+                )}
+                onChange={custom => {
+                    setConfiguration(previous => ({
+                        ...previous,
+                        rules: [
+                            ...previous.rules.filter(rule =>
+                                !rule.ruleId.startsWith("CUSTOM-")
+                            ),
+                            ...custom
+                        ]
+                    }));
 
+                    setValidationError("");
+                }}
+            />
             <section className="dashboard-panel">
                 <div className="dashboard-panel-header">
                     <h2>Risk Classification Thresholds</h2>

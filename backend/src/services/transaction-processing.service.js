@@ -40,6 +40,11 @@ import {
     verifyApprovalDecisionHistory
 } from "./approval-history.service.js";
 
+import {
+    recordAccountEvent,
+    recordBalanceSnapshot
+} from "../repositories/account-operations.repository.js";
+
 const MAX_BALANCE = BigInt(Number.MAX_SAFE_INTEGER);
 
 const UUID_PATTERN =
@@ -483,10 +488,63 @@ async function executeTransfer(
         );
     }
 
+
     await changeStatus({
         transactionId,
         expectedStatus: "Processing",
         status: "Completed",
+        session
+    });
+
+    const processedAt = new Date();
+
+    await recordBalanceSnapshot({
+        accountId: source.accountId,
+        balanceMinor: sourceAfter,
+        currency: source.currency,
+        eventType: "TRANSFER_DEBIT",
+        transactionId,
+        occurredAt: processedAt,
+        session
+    });
+
+    await recordBalanceSnapshot({
+        accountId: destination.accountId,
+        balanceMinor: destinationAfter,
+        currency: destination.currency,
+        eventType: "TRANSFER_CREDIT",
+        transactionId,
+        occurredAt: processedAt,
+        session
+    });
+
+    await recordAccountEvent({
+        accountId: source.accountId,
+        eventType: "TRANSFER_DEBIT",
+        actorId: "TRANSACTION_PROCESSOR",
+        details: {
+            transactionId,
+            amountMinor: amount.toString(),
+            balanceBeforeMinor: sourceBefore.toString(),
+            balanceAfterMinor: sourceAfter.toString(),
+            currency: source.currency
+        },
+        occurredAt: processedAt,
+        session
+    });
+
+    await recordAccountEvent({
+        accountId: destination.accountId,
+        eventType: "TRANSFER_CREDIT",
+        actorId: "TRANSACTION_PROCESSOR",
+        details: {
+            transactionId,
+            amountMinor: amount.toString(),
+            balanceBeforeMinor: destinationBefore.toString(),
+            balanceAfterMinor: destinationAfter.toString(),
+            currency: destination.currency
+        },
+        occurredAt: processedAt,
         session
     });
 

@@ -9,7 +9,6 @@ export const DEFAULT_RISK_RULES = [
     { ruleId: "RISK-008", points: 30 }
 ];
 
-
 export const DEFAULT_RISK_THRESHOLDS = [
     { level: "Low", min: 0, max: 24 },
     { level: "Medium", min: 25, max: 49 },
@@ -17,12 +16,134 @@ export const DEFAULT_RISK_THRESHOLDS = [
     { level: "Critical", min: 75, max: 100 }
 ];
 
-const VALID_LEVELS = [
-    "Low",
-    "Medium",
-    "High",
-    "Critical"
-];
+export const CUSTOM_RULE_FIELDS = {
+    amount: {
+        kind: "money",
+        operators: ["gte", "gt"]
+    },
+    recentCount: {
+        kind: "number",
+        operators: ["gte", "gt"]
+    },
+    recentVolume: {
+        kind: "money",
+        operators: ["gte", "gt"]
+    },
+    balancePercent: {
+        kind: "percentage",
+        operators: ["gte", "gt"]
+    },
+    sourceClientStatus: {
+        kind: "clientStatus",
+        operators: ["eq", "ne"]
+    },
+    destinationClientStatus: {
+        kind: "clientStatus",
+        operators: ["eq", "ne"]
+    },
+    sourceAccountStatus: {
+        kind: "accountStatus",
+        operators: ["eq", "ne"]
+    },
+    destinationAccountStatus: {
+        kind: "accountStatus",
+        operators: ["eq", "ne"]
+    }
+};
+
+const CLIENT_STATUSES = ["Active", "Inactive", "Suspended"];
+const ACCOUNT_STATUSES = ["Active", "Frozen", "Closed"];
+const REQUIRED_THRESHOLD_RULES = new Set([
+    "RISK-001",
+    "RISK-002",
+    "RISK-003",
+    "RISK-004",
+    "RISK-005",
+    "RISK-006"
+]);
+
+const MONETARY_RULES = new Set([
+    "RISK-001",
+    "RISK-002",
+    "RISK-003",
+    "RISK-005"
+]);
+
+function validPoints(points) {
+    return Number.isInteger(points) &&
+        points >= 0 &&
+        points <= 100;
+}
+
+export function validateCustomRule(rule) {
+    if (!rule || typeof rule !== "object" || Array.isArray(rule)) {
+        throw new Error("Invalid custom rule");
+    }
+
+    if (!/^CUSTOM-[A-Z0-9-]{1,48}$/.test(rule.ruleId ?? "")) {
+        throw new Error("Custom rule ID must start with CUSTOM-");
+    }
+
+    if (
+        typeof rule.name !== "string" ||
+        !rule.name.trim() ||
+        rule.name.length > 120
+    ) {
+        throw new Error(`${rule.ruleId}: invalid custom rule name`);
+    }
+
+    if (!validPoints(rule.points)) {
+        throw new Error(`${rule.ruleId}: points must be 0–100`);
+    }
+
+    const definition = CUSTOM_RULE_FIELDS[rule.field];
+
+    if (
+        !definition ||
+        !definition.operators.includes(rule.operator)
+    ) {
+        throw new Error(`${rule.ruleId}: unsupported condition`);
+    }
+
+    if (Object.hasOwn(rule, "threshold")) {
+        throw new Error(
+            `${rule.ruleId}: custom rules use value, not threshold`
+        );
+    }
+
+    if (definition.kind === "clientStatus") {
+        if (!CLIENT_STATUSES.includes(rule.value)) {
+            throw new Error(`${rule.ruleId}: invalid client status`);
+        }
+    } else if (definition.kind === "accountStatus") {
+        if (!ACCOUNT_STATUSES.includes(rule.value)) {
+            throw new Error(`${rule.ruleId}: invalid account status`);
+        }
+    } else {
+        if (
+            !Number.isSafeInteger(rule.value) ||
+            rule.value < 0
+        ) {
+            throw new Error(`${rule.ruleId}: invalid numeric value`);
+        }
+
+        if (
+            definition.kind === "percentage" &&
+            rule.value > 100
+        ) {
+            throw new Error(`${rule.ruleId}: percentage exceeds 100`);
+        }
+
+        if (
+            definition.kind === "money" &&
+            !Number.isSafeInteger(rule.value * 100)
+        ) {
+            throw new Error(`${rule.ruleId}: monetary value too large`);
+        }
+    }
+
+    return true;
+}
 
 export function validateRiskPolicy(policy) {
     if (
@@ -34,14 +155,13 @@ export function validateRiskPolicy(policy) {
     }
 
     const levels = ["Low", "Medium", "High", "Critical"];
-    const thresholds = policy.thresholds;
 
-    if (thresholds.length !== levels.length) {
+    if (policy.thresholds.length !== 4) {
         throw new Error("Four risk thresholds are required");
     }
 
-    for (let i = 0; i < thresholds.length; i++) {
-        const current = thresholds[i];
+    for (let i = 0; i < 4; i++) {
+        const current = policy.thresholds[i];
 
         if (
             current.level !== levels[i] ||
@@ -58,99 +178,139 @@ export function validateRiskPolicy(policy) {
             throw new Error("Risk thresholds must start at zero");
         }
 
-        if (i > 0) {
-            const previous = thresholds[i - 1];
-
-            if (current.min !== previous.max + 1) {
-                throw new Error(
-                    "Risk thresholds contain gaps or overlaps"
-                );
-            }
+        if (
+            i > 0 &&
+            current.min !== policy.thresholds[i - 1].max + 1
+        ) {
+            throw new Error("Risk thresholds contain gaps or overlaps");
         }
     }
 
-    if (thresholds[thresholds.length - 1].max !== 100) {
+    if (policy.thresholds[3].max !== 100) {
         throw new Error("Risk thresholds must end at 100");
     }
 
     const ruleIds = new Set();
 
+    if (policy.rules.length > 58) {
+        throw new Error("A policy supports up to 50 custom rules");
+    }
+
     for (const rule of policy.rules) {
-        const defaultRule = DEFAULT_RISK_RULES.find(
+        if (ruleIds.has(rule.ruleId)) {
+            throw new Error(`Duplicate risk rule: ${rule.ruleId}`);
+        }
+
+        const seeded = DEFAULT_RISK_RULES.find(
             item => item.ruleId === rule.ruleId
         );
 
-        if (!defaultRule || ruleIds.has(rule.ruleId)) {
-            throw new Error("Invalid or duplicate risk rule");
-        }
+        if (seeded) {
+            if (!validPoints(rule.points)) {
+                throw new Error(`${rule.ruleId}: invalid points`);
+            }
 
-        if (
-            !Number.isInteger(rule.points) ||
-            rule.points < 0 ||
-            rule.points > 100
-        ) {
-            throw new Error("Invalid risk rule points");
-        }
+            if (REQUIRED_THRESHOLD_RULES.has(rule.ruleId)) {
+                if (
+                    !Number.isSafeInteger(rule.threshold) ||
+                    rule.threshold <= 0
+                ) {
+                    throw new Error(`${rule.ruleId}: invalid threshold`);
+                }
 
-        const requiresThreshold = [
-            "RISK-001",
-            "RISK-002",
-            "RISK-003",
-            "RISK-004",
-            "RISK-005",
-            "RISK-006"
-        ].includes(rule.ruleId);
+                if (
+                    rule.ruleId === "RISK-006" &&
+                    rule.threshold > 100
+                ) {
+                    throw new Error("Invalid balance percentage");
+                }
 
-        if (
-            requiresThreshold &&
-            (!Number.isSafeInteger(rule.threshold) ||
-                rule.threshold <= 0)
-        ) {
-            throw new Error(
-                `Invalid threshold for ${rule.ruleId}`
-            );
-        }
-
-        if (
-            !requiresThreshold &&
-            Object.hasOwn(rule, "threshold")
-        ) {
-            throw new Error(
-                `Unexpected threshold for ${rule.ruleId}`
-            );
-        }
-
-        if (
-            rule.ruleId === "RISK-006" &&
-            rule.threshold > 100
-        ) {
-            throw new Error("Invalid balance percentage threshold");
-        }
-
-        if (
-            ["RISK-001", "RISK-002", "RISK-003", "RISK-005"]
-                .includes(rule.ruleId) &&
-            !Number.isSafeInteger(rule.threshold * 100)
-        ) {
-            throw new Error(
-                "Threshold exceeds supported monetary range"
-            );
+                if (
+                    MONETARY_RULES.has(rule.ruleId) &&
+                    !Number.isSafeInteger(rule.threshold * 100)
+                ) {
+                    throw new Error("Monetary threshold too large");
+                }
+            } else if (Object.hasOwn(rule, "threshold")) {
+                throw new Error(`${rule.ruleId}: unexpected threshold`);
+            }
+        } else {
+            validateCustomRule(rule);
         }
 
         ruleIds.add(rule.ruleId);
     }
 
-    for (const defaultRule of DEFAULT_RISK_RULES) {
-        if (!ruleIds.has(defaultRule.ruleId)) {
-            throw new Error(
-                `Missing required risk rule: ${defaultRule.ruleId}`
-            );
+    for (const seeded of DEFAULT_RISK_RULES) {
+        if (!ruleIds.has(seeded.ruleId)) {
+            throw new Error(`Missing required seeded rule: ${seeded.ruleId}`);
         }
     }
 
     return true;
 }
 
+function compareNumber(actual, operator, target) {
+    switch (operator) {
+        case "gte": return actual >= target;
+        case "gt": return actual > target;
+        case "eq": return actual === target;
+        case "ne": return actual !== target;
+        default: throw new Error("Invalid rule operator");
+    }
+}
+
+function evaluateCustomRule(rule, context) {
+    const fields = {
+        amount: context.amountMinor,
+        recentCount: context.recentTransactionCount,
+        recentVolume: context.recentTransferVolumeMinor,
+        sourceClientStatus: context.sourceClientStatus,
+        destinationClientStatus: context.destinationClientStatus,
+        sourceAccountStatus: context.sourceAccountStatus,
+        destinationAccountStatus: context.destinationAccountStatus
+    };
+
+    if (rule.field === "balancePercent") {
+        const left = BigInt(context.amountMinor) * BigInt(100);
+        const right = BigInt(context.sourceBalanceMinor) *
+            BigInt(rule.value);
+
+        return {
+            triggered: rule.operator === "gt"
+                ? left > right
+                : left >= right,
+            evaluatedInput: {
+                amountMinor: context.amountMinor,
+                sourceBalanceMinor: context.sourceBalanceMinor
+            }
+        };
+    }
+
+    const kind = CUSTOM_RULE_FIELDS[rule.field].kind;
+
+    if (kind === "money") {
+        const actualMinor = rule.field === "amount"
+            ? context.amountMinor
+            : context.recentTransferVolumeMinor;
+
+        return {
+            triggered: compareNumber(
+                BigInt(actualMinor),
+                rule.operator,
+                BigInt(rule.value) * BigInt(100)
+            ),
+            evaluatedInput: actualMinor
+        };
+    }
+
+    const actual = fields[rule.field];
+
+    return {
+        triggered: compareNumber(actual, rule.operator, rule.value),
+        evaluatedInput: actual
+    };
+}
 
 export function evaluateTransactionRisk(context, policy) {
     validateRiskPolicy(policy);
@@ -196,7 +356,7 @@ export function evaluateTransactionRisk(context, policy) {
         sourceAccountStatus,
         destinationAccountStatus
     ]) {
-        if (!["Active", "Frozen", "Closed"].includes(status)) {
+        if (!ACCOUNT_STATUSES.includes(status)) {
             throw new Error("Invalid account status");
         }
     }
@@ -205,7 +365,7 @@ export function evaluateTransactionRisk(context, policy) {
         sourceClientStatus,
         destinationClientStatus
     ]) {
-        if (!["Active", "Inactive", "Suspended"].includes(status)) {
+        if (!CLIENT_STATUSES.includes(status)) {
             throw new Error("Invalid client status");
         }
     }
@@ -242,12 +402,9 @@ export function evaluateTransactionRisk(context, policy) {
 
             case "RISK-006":
                 triggered =
-                    BigInt(amountMinor) * 100n >
+                    BigInt(amountMinor) * BigInt(100) >
                     BigInt(sourceBalanceMinor) * BigInt(threshold);
-                evaluatedInput = {
-                    amountMinor,
-                    sourceBalanceMinor
-                };
+                evaluatedInput = { amountMinor, sourceBalanceMinor };
                 reason = "Transfer exceeds configured balance percentage";
                 break;
 
@@ -262,6 +419,13 @@ export function evaluateTransactionRisk(context, policy) {
                 evaluatedInput = destinationClientStatus;
                 reason = "Destination client is not active";
                 break;
+
+            default: {
+                const result = evaluateCustomRule(rule, context);
+                triggered = result.triggered;
+                evaluatedInput = result.evaluatedInput;
+                reason = `${rule.name}: ${rule.field} ${rule.operator} ${rule.value}`;
+            }
         }
 
         if (triggered) {
@@ -282,13 +446,11 @@ export function evaluateTransactionRisk(context, policy) {
         )
     );
 
-    const level = policy.thresholds.find(
-        threshold =>
-            score >= threshold.min &&
-            score <= threshold.max
+    const classification = policy.thresholds.find(
+        item => score >= item.min && score <= item.max
     );
 
-    if (!level) {
+    if (!classification) {
         throw new Error("Risk classification failed");
     }
 
@@ -296,8 +458,8 @@ export function evaluateTransactionRisk(context, policy) {
         policyId: policy.policyId,
         policyVersion: policy.version,
         riskScore: score,
-        riskLevel: level.level,
-        approvalRequired: level.level !== "Low",
+        riskLevel: classification.level,
+        approvalRequired: classification.level !== "Low",
         triggeredRules
     };
 }

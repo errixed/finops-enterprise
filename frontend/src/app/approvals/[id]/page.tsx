@@ -9,7 +9,7 @@ import {
     useState
 } from "react";
 import Link from "next/link";
-
+import TransactionDocumentsPanel from "@/components/transactions/TransactionDocumentsPanel";
 import {
     ApprovalWorkflow,
     WorkflowActor,
@@ -281,8 +281,8 @@ export default function ApprovalWorkflowDetailsPage({
     const effectiveAction = availableActions.includes(
         selectedAction
     ) && (
-        selectedAction !== "Escalated" || canEscalate
-    )
+            selectedAction !== "Escalated" || canEscalate
+        )
         ? selectedAction
         : "Approved";
 
@@ -538,9 +538,8 @@ export default function ApprovalWorkflowDetailsPage({
                         return (
                             <div
                                 key={stage.stageNumber}
-                                className={`approval-detail-stage ${
-                                    current ? "current" : ""
-                                }`}
+                                className={`approval-detail-stage ${current ? "current" : ""
+                                    }`}
                             >
                                 <div>
                                     <strong>
@@ -633,7 +632,11 @@ export default function ApprovalWorkflowDetailsPage({
                     )}
                 </section>
             )}
-
+            {workflow && (
+                <TransactionDocumentsPanel
+                    transactionId={workflow.transactionId}
+                />
+            )}
             <section className="dashboard-panel">
                 <div className="dashboard-panel-header">
                     <h2>Reviewer Actions</h2>

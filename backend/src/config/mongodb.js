@@ -14,7 +14,9 @@ const COLLECTION_NAMES = Object.freeze([
     "approval_policies",
     "approval_workflows",
     "approval_decisions",
-    "workflow_actors"
+    "workflow_actors",
+    "account_balance_history",
+    "account_audit_events"
 
 ]);
 
